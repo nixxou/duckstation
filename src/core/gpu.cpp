@@ -30,11 +30,14 @@
 #include <cmath>
 #include <thread>
 
+
 Log_SetChannel(GPU);
 
 std::unique_ptr<GPU> g_gpu;
 
 const GPU::GP0CommandHandlerTable GPU::s_GP0_command_handler_table = GPU::GenerateGP0CommandHandlerTable();
+
+static std::string gameName = System::GetGameSerial();
 
 GPU::GPU()
 {
@@ -1041,6 +1044,93 @@ void GPU::ConvertScreenCoordinatesToDisplayCoordinates(float window_x, float win
 bool GPU::ConvertDisplayCoordinatesToBeamTicksAndLines(float display_x, float display_y, float x_scale, u32* out_tick,
                                                        u32* out_line) const
 {
+
+ std::string gameSerial = System::GetGameSerial();
+  Log_DevPrintf("TESSSSSST ! %s :  %f %f", gameSerial.c_str(), display_x, display_y);
+ bool use_regular_out_screen = true;
+ float y_scale = 1.0f;
+  if (gameSerial == "SLUS-00335") //Crypt Killer
+  {
+    
+    if (display_x <= 0 || display_x >= 320 || display_y <= 0 || display_y >= 224)
+      return false;
+
+    display_x = display_x - 25;
+    display_y = (display_y*2);
+    use_regular_out_screen = false;
+  }
+ 
+  if (gameSerial == "SLES-00445") //Die Hard Trilogy
+  {
+
+     if (display_x <= 0 || display_x >= 511 || display_y <= 0 || display_y >= 267)
+      return false;
+
+    display_x = display_x - 42;
+    display_y = display_y - 28;
+    use_regular_out_screen = false;
+  } 
+
+  if (gameSerial == "SLUS-00654") // Elemental Gearbolt
+  {
+    if (display_x <= 0 || display_x >= 254 || display_y <= 9 || display_y >= 223)
+      return false;
+    display_x = display_x - 17;
+    use_regular_out_screen = false;
+  } 
+
+  if (gameSerial == "SLES-03990") // Extreme ghostbuster
+  {
+    //if (display_x <= 0 || display_x >= 254 || display_y <= 9 || display_y >= 223)
+    //  return false;
+    display_x = display_x - 25;
+    display_y = display_y + 19.5;
+
+    float new_pos = 0;
+    float max_total = static_cast<float>(m_crtc_state.display_height);
+    new_pos = ((float)display_y * (261.5 - 3.5) / 268.0) + 3.5;
+    display_y = new_pos;
+
+
+    use_regular_out_screen = false;
+    x_scale = 0.905f;
+  } 
+  if (gameSerial == "SCES-02543") // Ghoul Panic
+  {
+    if (display_x <= 0 || display_x >= 512 || display_y <= 0 || display_y >= 538)
+      return false;
+    display_x = display_x - 39.5;
+    display_y = display_y + 10;
+
+    float new_pos = 0;
+    new_pos = ((float)display_y * (524.0 - 9.0) / 538.0) + 9.0;
+    display_y = new_pos;
+
+      use_regular_out_screen = false;
+
+  }
+
+  //SLUS-01398 Gunfighter - The Legend of Jesse James (USA) : No need
+  //SLPS - 01106 Guntu - Western Front June, 1944 - Tetsu no Kioku(Japan) : No need
+
+  if (gameSerial == "SLUS-00630") // Judge Dreed
+  {
+
+     if (display_x <= 160 || display_x >= 512 || display_y <= 0 || display_y >= 538)
+       return false;
+      display_x = display_x -13;
+      display_y -= (display_y * 0.03125);
+      display_y += 10;
+      //display_y = display_y +10;
+      
+     // display_y = display_y + 3;
+      
+
+      use_regular_out_screen = false;
+  }
+
+
+  //display_x = display_x - 30;
   if (x_scale != 1.0f)
   {
     const float dw = static_cast<float>(m_crtc_state.display_width);
@@ -1049,11 +1139,23 @@ bool GPU::ConvertDisplayCoordinatesToBeamTicksAndLines(float display_x, float di
     display_x = (((scaled_x + 1.0f) * 0.5f) * dw); // -1..1 -> 0..1
   }
 
-  if (display_x < 0 || static_cast<u32>(display_x) >= m_crtc_state.display_width || display_y < 0 ||
-      static_cast<u32>(display_y) >= m_crtc_state.display_height)
+  if (y_scale != 1.0f)
   {
-    return false;
+    const float dw = static_cast<float>(m_crtc_state.display_height);
+    float scaled_y = ((display_y / dw) * 2.0f) - 1.0f; // 0..1 -> -1..1
+    scaled_y *= y_scale;
+    display_y = (((scaled_y + 1.0f) * 0.5f) * dw); // -1..1 -> 0..1
   }
+
+  if (use_regular_out_screen)
+  {
+    if (display_x < 0 || static_cast<u32>(display_x) >= m_crtc_state.display_width || display_y < 0 ||
+        static_cast<u32>(display_y) >= m_crtc_state.display_height)
+    {
+        //return false;
+    }
+  }
+
 
   *out_line = (static_cast<u32>(std::round(display_y)) >> BoolToUInt8(m_GPUSTAT.vertical_interlace)) +
               m_crtc_state.vertical_visible_start;
