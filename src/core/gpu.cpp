@@ -1116,18 +1116,102 @@ bool GPU::ConvertDisplayCoordinatesToBeamTicksAndLines(float display_x, float di
   if (gameSerial == "SLUS-00630") // Judge Dreed
   {
 
-     if (display_x <= 160 || display_x >= 512 || display_y <= 0 || display_y >= 538)
+    if (display_x <= 0 || display_x >= 320 || display_y <= 0 || display_y >= 224)
        return false;
+
       display_x = display_x -13;
       display_y -= (display_y * 0.03125);
       display_y += 10;
-      //display_y = display_y +10;
-      
-     // display_y = display_y + 3;
-      
 
       use_regular_out_screen = false;
   }
+  if (gameSerial == "SLUS-00293") // Lethal enforcer
+  {
+
+      if (display_x <= 0 || display_x >= 319 || display_y <= 0 || display_y >= 224)
+       return false;
+
+      display_x = display_x - 20;
+
+      use_regular_out_screen = false;
+  }
+
+    if (gameSerial == "SLUS-00503") // Maximum force
+  {
+
+      if (display_x <= 8 || display_x >= 248 || display_y <= 0 || display_y >= 224)
+       return false;
+
+      display_x = display_x - 67;
+      display_y -= 2;
+
+      use_regular_out_screen = false;
+  }
+
+    if (gameSerial == "SLES-03846") // Moorhen 3 - Chicken Chase (Europe) (En,Fr,De)
+  {
+      if (display_x <= 0 || display_x >= 319 || display_y <= 0 || display_y >= 267)
+       return false;
+
+      float new_pos = 0;
+      new_pos = ((float)display_x * (272.0 - 41.0) / 320) + 41.0;
+      display_x = new_pos;
+
+      display_y = ((float)display_y * (272.0 - 33.0) / 272) + 33.0;
+
+      use_regular_out_screen = false;
+  }
+  if (gameSerial == "SLES-03278") // Moorhuhn 2 - Die Jagd Geht Weiter (Germany)
+  {
+      if (display_x <= 0 || display_x >= 319 || display_y <= 0 || display_y >= 267)
+       return false;
+
+      float toremove = (((-0.0000390625 * (display_x * display_x)) + (0.0125 * display_x)) * 14);
+      display_x = ((float)display_x * (276.0 - 41.0) / 320) + 41.0;
+      display_x -= toremove;
+
+      display_y = ((float)display_y * (272.0 - 33.0) / 272) + 33.0;
+
+      use_regular_out_screen = false;
+  }
+
+    if (gameSerial == "SLES-04174") // Moorhuhn X (Germany) (En,De)
+  {
+      if (display_x <= 0 || display_x >= 319 || display_y <= 0 || display_y >= 267)
+       return false;
+
+
+      float toremove = (((-0.0000390625 * (display_x * display_x)) + (0.0125 * display_x)) * 12);
+      display_x = ((float)display_x * (276.0 - 41.0) / 320) + 41.0;
+      display_x -= toremove;
+      display_y = ((float)display_y * (272.0 - 33.0) / 272) + 33.0;
+      use_regular_out_screen = false;
+  }
+    //SLUS-00481 Point Blank 1 & 2 : no need
+
+  if (gameSerial == "SLUS-01354") // Point Blank 3 (USA)
+  {
+      if (display_x <= 0 || display_x >= 321 || display_y <= 0 || display_y >= 224)
+       return false;
+      display_x -= 33;
+
+      use_regular_out_screen = false;
+  }
+
+    if (gameSerial == "SLPM-86048") // Policenauts (Japan) (Disc 1)
+  {
+      display_x -= 18.5;
+
+      use_regular_out_screen = false;
+  }
+  if (gameSerial == "SLPM-86049") // Policenauts (Japan) (Disc 2)
+  {
+      display_x -= 18.5;
+
+      use_regular_out_screen = false;
+  }
+
+
 
 
   //display_x = display_x - 30;
@@ -1152,7 +1236,7 @@ bool GPU::ConvertDisplayCoordinatesToBeamTicksAndLines(float display_x, float di
     if (display_x < 0 || static_cast<u32>(display_x) >= m_crtc_state.display_width || display_y < 0 ||
         static_cast<u32>(display_y) >= m_crtc_state.display_height)
     {
-        //return false;
+        return false;
     }
   }
 
