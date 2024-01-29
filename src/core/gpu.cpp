@@ -1046,7 +1046,9 @@ bool GPU::ConvertDisplayCoordinatesToBeamTicksAndLines(float display_x, float di
 {
 
  std::string gameSerial = System::GetGameSerial();
- //Log_DevPrintf("TESSSSSST ! %s :  %f %f", gameSerial.c_str(), display_x, display_y);
+  Log_DevPrintf("TESSSSSST ! %s :  %f %f - %d %d", gameSerial.c_str(), display_x, display_y,
+               m_crtc_state.display_width,
+               m_crtc_state.display_height);
  bool use_regular_out_screen = true;
  float y_scale = 1.0f;
  x_scale = 1.0f;
@@ -1059,8 +1061,11 @@ bool GPU::ConvertDisplayCoordinatesToBeamTicksAndLines(float display_x, float di
 
  if (gameSerial == "SLUS-00335") //Crypt Killer
 { 
-    if (display_x <= 0 || display_x >= 320 || display_y <= 0 || display_y >= 224)
-        return false;
+    if (display_x <= 0 || static_cast<u32>(display_x) >= m_crtc_state.display_width || display_y <= 0 ||
+        static_cast<u32>(display_y) >= m_crtc_state.display_height)
+    {
+      return false;
+    }
 
     display_x = display_x - 25;
     display_y = (display_y*2);
@@ -1068,8 +1073,11 @@ bool GPU::ConvertDisplayCoordinatesToBeamTicksAndLines(float display_x, float di
 }
 else if (gameSerial == "SLES-00445") //Die Hard Trilogy
 {
-    if (display_x <= 0 || display_x >= 511 || display_y <= 0 || display_y >= 267)
+    if (display_x <= 0 || static_cast<u32>(display_x) >= m_crtc_state.display_width || display_y <= 0 ||
+        static_cast<u32>(display_y) >= m_crtc_state.display_height)
+    {
         return false;
+    }
 
     display_x = display_x - 42;
     display_y = display_y - 28;
@@ -1077,16 +1085,23 @@ else if (gameSerial == "SLES-00445") //Die Hard Trilogy
 } 
 else if (gameSerial == "SLUS-00654") // Elemental Gearbolt
 {
-    if (display_x <= 0 || display_x >= 254 || display_y <= 9 || display_y >= 223)
-      return false;
-    display_x = display_x - 17;
+    if (display_x <= 0 || static_cast<u32>(display_x) >= m_crtc_state.display_width || display_y <= 0 ||
+        static_cast<u32>(display_y) >= m_crtc_state.display_height)
+    {
+        return false;
+    }
+     display_x = display_x - 17;
     use_regular_out_screen = false;
 } 
 else if (gameSerial == "SLES-03990") // Extreme ghostbuster
 {
-    //if (display_x <= 0 || display_x >= 254 || display_y <= 9 || display_y >= 223)
-    //  return false;
-    display_x = display_x - 25;
+    if (display_x <= 0 || static_cast<u32>(display_x) >= m_crtc_state.display_width || display_y <= 0 ||
+        static_cast<u32>(display_y) >= m_crtc_state.display_height)
+    {
+        return false;
+    }
+
+    display_x = display_x - 15;
     display_y = display_y + 19.5;
 
     float new_pos = 0;
@@ -1098,8 +1113,11 @@ else if (gameSerial == "SLES-03990") // Extreme ghostbuster
 } 
 else if (gameSerial == "SCES-02543") // Ghoul Panic
 {
-    if (display_x <= 0 || display_x >= 512 || display_y <= 0 || display_y >= 538)
+    if (display_x <= 0 || static_cast<u32>(display_x) >= m_crtc_state.display_width || display_y <= 0 ||
+        static_cast<u32>(display_y) >= m_crtc_state.display_height)
+    {
       return false;
+    }
     display_x = display_x - 39.5;
     display_y = display_y + 10;
 
@@ -1110,9 +1128,11 @@ else if (gameSerial == "SCES-02543") // Ghoul Panic
 }
 else if (gameSerial == "SLUS-00630") // Judge Dreed
 {
-
-    if (display_x <= 0 || display_x >= 320 || display_y <= 0 || display_y >= 224)
-        return false;
+    if (display_x <= 0 || static_cast<u32>(display_x) >= m_crtc_state.display_width || display_y <= 0 ||
+        static_cast<u32>(display_y) >= m_crtc_state.display_height)
+    {
+      return false;
+    }
 
     display_x = display_x -13;
     display_y -= (display_y * 0.03125);
@@ -1122,19 +1142,22 @@ else if (gameSerial == "SLUS-00630") // Judge Dreed
 }
 else if (gameSerial == "SLUS-00293") // Lethal enforcer
 {
-
-    if (display_x <= 0 || display_x >= 319 || display_y <= 0 || display_y >= 224)
-        return false;
-
+    if (display_x <= 0 || static_cast<u32>(display_x) >= m_crtc_state.display_width || display_y <= 0 ||
+        static_cast<u32>(display_y) >= m_crtc_state.display_height)
+    {
+      return false;
+    }
     display_x = display_x - 20;
 
     use_regular_out_screen = false;
 }
 else if (gameSerial == "SLUS-00503") // Maximum force
 {
-
-    if (display_x <= 8 || display_x >= 248 || display_y <= 0 || display_y >= 224)
-        return false;
+    if (display_x <= 0 || static_cast<u32>(display_x) >= m_crtc_state.display_width || display_y <= 0 ||
+        static_cast<u32>(display_y) >= m_crtc_state.display_height)
+    {
+      return false;
+    }
 
     display_x = display_x - 67;
     display_y -= 2;
@@ -1176,8 +1199,11 @@ else if (gameSerial == "SLES-04174") // Moorhuhn X (Germany) (En,De)
 }
 else if (gameSerial == "SLUS-01354") // Point Blank 3 (USA)
 {
-    if (display_x <= 0 || display_x >= 321 || display_y <= 0 || display_y >= 224)
+    if (display_x <= 0 || static_cast<u32>(display_x) >= m_crtc_state.display_width || display_y <= 0 ||
+        static_cast<u32>(display_y) >= m_crtc_state.display_height)
+    {
         return false;
+    }
     display_x -= 33;
 
     use_regular_out_screen = false;
@@ -1196,14 +1222,17 @@ else if (gameSerial == "SLPM-86049") // Policenauts (Japan) (Disc 2)
 }
 else if (gameSerial == "SCUS-94408") // Project - Horned Owl (USA)
 {
+    if (display_x <= 0 || static_cast<u32>(display_x) >= m_crtc_state.display_width || display_y <= 0 ||
+        static_cast<u32>(display_y) >= m_crtc_state.display_height)
+    {
+        return false;
+    }
     display_x -= 16;
 
     use_regular_out_screen = false;
 }
 else if (gameSerial == "SCES-02569") //Rescue Shot (Europe) (En,Fr,De,Es,It)
 {
-    // if (display_x <= 0 || display_x >= 320 || display_y <= 0 || display_y >= 267)
-    // return false;
     if (display_x <= 0 || static_cast<u32>(display_x) >= m_crtc_state.display_width || display_y <= 0 ||
         static_cast<u32>(display_y) >= m_crtc_state.display_height)
     {
@@ -1217,8 +1246,11 @@ else if (gameSerial == "SCES-02569") //Rescue Shot (Europe) (En,Fr,De,Es,It)
 }
 else if (gameSerial == "SLES-02744") //Resident Evil - Survivor (France) (calibration target need to be shoot a little lower)
 {
-    if (display_x <= 0 || display_x >= 319 || display_y <= 0 || display_y >= 267)
+    if (display_x <= 0 || static_cast<u32>(display_x) >= m_crtc_state.display_width || display_y <= 0 ||
+        static_cast<u32>(display_y) >= m_crtc_state.display_height)
+    {
         return false;
+    }
 
     //display_y = ((float)display_y * 232.0 / 267);
     display_x = ((float)display_x * (318.0 - 2.0) / 320) + 2.0;
@@ -1230,10 +1262,12 @@ else if (gameSerial == "SLES-02744") //Resident Evil - Survivor (France) (calibr
 }
 else if (gameSerial == "SLES-02732") //Resident Evil - Survivor (Europe) (calibration target need to be shoot a little lower)
 {
-    if (display_x <= 0 || display_x >= 319 || display_y <= 0 || display_y >= 267)
+    if (display_x <= 0 || static_cast<u32>(display_x) >= m_crtc_state.display_width || display_y <= 0 ||
+        static_cast<u32>(display_y) >= m_crtc_state.display_height)
+    {
         return false;
+    }
 
-    //display_y = ((float)display_y * 232.0 / 267);
     display_x = ((float)display_x * (318.0 - 2.0) / 320) + 2.0;
     display_y -= (1 - (display_y / 268)) * 5;
     display_x -= 20;
