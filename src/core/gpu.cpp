@@ -1046,41 +1046,44 @@ bool GPU::ConvertDisplayCoordinatesToBeamTicksAndLines(float display_x, float di
 {
 
  std::string gameSerial = System::GetGameSerial();
-  Log_DevPrintf("TESSSSSST ! %s :  %f %f", gameSerial.c_str(), display_x, display_y);
+ //Log_DevPrintf("TESSSSSST ! %s :  %f %f", gameSerial.c_str(), display_x, display_y);
  bool use_regular_out_screen = true;
  float y_scale = 1.0f;
-  if (gameSerial == "SLUS-00335") //Crypt Killer
-  {
-    
+ x_scale = 1.0f;
+
+ // SLUS-01398 Gunfighter - The Legend of Jesse James (USA) : No need
+ // SLPS - 01106 Guntu - Western Front June, 1944 - Tetsu no Kioku(Japan) : No need
+ // SLUS-00481 Point Blank 1 & 2 : no need
+
+ // Time Crisis - Project Titan (USA) : no need, target few pixel on the right on calibrated screen
+
+ if (gameSerial == "SLUS-00335") //Crypt Killer
+{ 
     if (display_x <= 0 || display_x >= 320 || display_y <= 0 || display_y >= 224)
-      return false;
+        return false;
 
     display_x = display_x - 25;
     display_y = (display_y*2);
     use_regular_out_screen = false;
-  }
- 
-  if (gameSerial == "SLES-00445") //Die Hard Trilogy
-  {
-
-     if (display_x <= 0 || display_x >= 511 || display_y <= 0 || display_y >= 267)
-      return false;
+}
+else if (gameSerial == "SLES-00445") //Die Hard Trilogy
+{
+    if (display_x <= 0 || display_x >= 511 || display_y <= 0 || display_y >= 267)
+        return false;
 
     display_x = display_x - 42;
     display_y = display_y - 28;
     use_regular_out_screen = false;
-  } 
-
-  if (gameSerial == "SLUS-00654") // Elemental Gearbolt
-  {
+} 
+else if (gameSerial == "SLUS-00654") // Elemental Gearbolt
+{
     if (display_x <= 0 || display_x >= 254 || display_y <= 9 || display_y >= 223)
       return false;
     display_x = display_x - 17;
     use_regular_out_screen = false;
-  } 
-
-  if (gameSerial == "SLES-03990") // Extreme ghostbuster
-  {
+} 
+else if (gameSerial == "SLES-03990") // Extreme ghostbuster
+{
     //if (display_x <= 0 || display_x >= 254 || display_y <= 9 || display_y >= 223)
     //  return false;
     display_x = display_x - 25;
@@ -1090,13 +1093,11 @@ bool GPU::ConvertDisplayCoordinatesToBeamTicksAndLines(float display_x, float di
     float max_total = static_cast<float>(m_crtc_state.display_height);
     new_pos = ((float)display_y * (261.5 - 3.5) / 268.0) + 3.5;
     display_y = new_pos;
-
-
     use_regular_out_screen = false;
     x_scale = 0.905f;
-  } 
-  if (gameSerial == "SCES-02543") // Ghoul Panic
-  {
+} 
+else if (gameSerial == "SCES-02543") // Ghoul Panic
+{
     if (display_x <= 0 || display_x >= 512 || display_y <= 0 || display_y >= 538)
       return false;
     display_x = display_x - 39.5;
@@ -1105,114 +1106,181 @@ bool GPU::ConvertDisplayCoordinatesToBeamTicksAndLines(float display_x, float di
     float new_pos = 0;
     new_pos = ((float)display_y * (524.0 - 9.0) / 538.0) + 9.0;
     display_y = new_pos;
-
-      use_regular_out_screen = false;
-
-  }
-
-  //SLUS-01398 Gunfighter - The Legend of Jesse James (USA) : No need
-  //SLPS - 01106 Guntu - Western Front June, 1944 - Tetsu no Kioku(Japan) : No need
-
-  if (gameSerial == "SLUS-00630") // Judge Dreed
-  {
+    use_regular_out_screen = false;
+}
+else if (gameSerial == "SLUS-00630") // Judge Dreed
+{
 
     if (display_x <= 0 || display_x >= 320 || display_y <= 0 || display_y >= 224)
-       return false;
+        return false;
 
-      display_x = display_x -13;
-      display_y -= (display_y * 0.03125);
-      display_y += 10;
+    display_x = display_x -13;
+    display_y -= (display_y * 0.03125);
+    display_y += 10;
 
-      use_regular_out_screen = false;
-  }
-  if (gameSerial == "SLUS-00293") // Lethal enforcer
-  {
+    use_regular_out_screen = false;
+}
+else if (gameSerial == "SLUS-00293") // Lethal enforcer
+{
 
-      if (display_x <= 0 || display_x >= 319 || display_y <= 0 || display_y >= 224)
-       return false;
+    if (display_x <= 0 || display_x >= 319 || display_y <= 0 || display_y >= 224)
+        return false;
 
-      display_x = display_x - 20;
+    display_x = display_x - 20;
 
-      use_regular_out_screen = false;
-  }
+    use_regular_out_screen = false;
+}
+else if (gameSerial == "SLUS-00503") // Maximum force
+{
 
-    if (gameSerial == "SLUS-00503") // Maximum force
-  {
+    if (display_x <= 8 || display_x >= 248 || display_y <= 0 || display_y >= 224)
+        return false;
 
-      if (display_x <= 8 || display_x >= 248 || display_y <= 0 || display_y >= 224)
-       return false;
+    display_x = display_x - 67;
+    display_y -= 2;
 
-      display_x = display_x - 67;
-      display_y -= 2;
+    use_regular_out_screen = false;
+}
+else if (gameSerial == "SLES-03846") // Moorhen 3 - Chicken Chase (Europe) (En,Fr,De)
+{
+    if (display_x <= 0 || display_x >= 319 || display_y <= 0 || display_y >= 267)
+        return false;
 
-      use_regular_out_screen = false;
-  }
+    display_x = ((float)display_x * (272.0 - 41.0) / 320) + 41.0;
+    display_y = ((float)display_y * (272.0 - 33.0) / 272) + 33.0;
+    use_regular_out_screen = false;
+}
+else if (gameSerial == "SLES-03278") // Moorhuhn 2 - Die Jagd Geht Weiter (Germany)
+{
+    if (display_x <= 0 || display_x >= 319 || display_y <= 0 || display_y >= 267)
+        return false;
 
-    if (gameSerial == "SLES-03846") // Moorhen 3 - Chicken Chase (Europe) (En,Fr,De)
-  {
-      if (display_x <= 0 || display_x >= 319 || display_y <= 0 || display_y >= 267)
-       return false;
+    float toremove = (((-0.0000390625 * (display_x * display_x)) + (0.0125 * display_x)) * 14);
+    display_x = ((float)display_x * (276.0 - 41.0) / 320) + 41.0;
+    display_x -= toremove;
+    display_y = ((float)display_y * (272.0 - 33.0) / 272) + 33.0;
 
-      float new_pos = 0;
-      new_pos = ((float)display_x * (272.0 - 41.0) / 320) + 41.0;
-      display_x = new_pos;
-
-      display_y = ((float)display_y * (272.0 - 33.0) / 272) + 33.0;
-
-      use_regular_out_screen = false;
-  }
-  if (gameSerial == "SLES-03278") // Moorhuhn 2 - Die Jagd Geht Weiter (Germany)
-  {
-      if (display_x <= 0 || display_x >= 319 || display_y <= 0 || display_y >= 267)
-       return false;
-
-      float toremove = (((-0.0000390625 * (display_x * display_x)) + (0.0125 * display_x)) * 14);
-      display_x = ((float)display_x * (276.0 - 41.0) / 320) + 41.0;
-      display_x -= toremove;
-
-      display_y = ((float)display_y * (272.0 - 33.0) / 272) + 33.0;
-
-      use_regular_out_screen = false;
-  }
-
-    if (gameSerial == "SLES-04174") // Moorhuhn X (Germany) (En,De)
-  {
-      if (display_x <= 0 || display_x >= 319 || display_y <= 0 || display_y >= 267)
-       return false;
+    use_regular_out_screen = false;
+}
+else if (gameSerial == "SLES-04174") // Moorhuhn X (Germany) (En,De)
+{
+    if (display_x <= 0 || display_x >= 319 || display_y <= 0 || display_y >= 267)
+        return false;
 
 
-      float toremove = (((-0.0000390625 * (display_x * display_x)) + (0.0125 * display_x)) * 12);
-      display_x = ((float)display_x * (276.0 - 41.0) / 320) + 41.0;
-      display_x -= toremove;
-      display_y = ((float)display_y * (272.0 - 33.0) / 272) + 33.0;
-      use_regular_out_screen = false;
-  }
-    //SLUS-00481 Point Blank 1 & 2 : no need
+    float toremove = (((-0.0000390625 * (display_x * display_x)) + (0.0125 * display_x)) * 12);
+    display_x = ((float)display_x * (276.0 - 41.0) / 320) + 41.0;
+    display_x -= toremove;
+    display_y = ((float)display_y * (272.0 - 33.0) / 272) + 33.0;
+    use_regular_out_screen = false;
+}
+else if (gameSerial == "SLUS-01354") // Point Blank 3 (USA)
+{
+    if (display_x <= 0 || display_x >= 321 || display_y <= 0 || display_y >= 224)
+        return false;
+    display_x -= 33;
 
-  if (gameSerial == "SLUS-01354") // Point Blank 3 (USA)
-  {
-      if (display_x <= 0 || display_x >= 321 || display_y <= 0 || display_y >= 224)
-       return false;
-      display_x -= 33;
+    use_regular_out_screen = false;
+}
+else if (gameSerial == "SLPM-86048") // Policenauts (Japan) (Disc 1)
+{
+    display_x -= 18.5;
 
-      use_regular_out_screen = false;
-  }
+    use_regular_out_screen = false;
+}
+else if (gameSerial == "SLPM-86049") // Policenauts (Japan) (Disc 2)
+{
+    display_x -= 18.5;
 
-    if (gameSerial == "SLPM-86048") // Policenauts (Japan) (Disc 1)
-  {
-      display_x -= 18.5;
+    use_regular_out_screen = false;
+}
+else if (gameSerial == "SCUS-94408") // Project - Horned Owl (USA)
+{
+    display_x -= 16;
 
-      use_regular_out_screen = false;
-  }
-  if (gameSerial == "SLPM-86049") // Policenauts (Japan) (Disc 2)
-  {
-      display_x -= 18.5;
+    use_regular_out_screen = false;
+}
+else if (gameSerial == "SCES-02569") //Rescue Shot (Europe) (En,Fr,De,Es,It)
+{
+    // if (display_x <= 0 || display_x >= 320 || display_y <= 0 || display_y >= 267)
+    // return false;
+    if (display_x <= 0 || static_cast<u32>(display_x) >= m_crtc_state.display_width || display_y <= 0 ||
+        static_cast<u32>(display_y) >= m_crtc_state.display_height)
+    {
+        return false;
+    }
 
-      use_regular_out_screen = false;
-  }
+    x_scale = 0.97f;
+    display_x -= 25;
+    display_y = ((float)display_y * (268.0 - 5.0) / 278.0) + 5.0;
+    use_regular_out_screen = false;
+}
+else if (gameSerial == "SLES-02744") //Resident Evil - Survivor (France) (calibration target need to be shoot a little lower)
+{
+    if (display_x <= 0 || display_x >= 319 || display_y <= 0 || display_y >= 267)
+        return false;
 
+    //display_y = ((float)display_y * 232.0 / 267);
+    display_x = ((float)display_x * (318.0 - 2.0) / 320) + 2.0;
+    display_y -= (1 - (display_y / 268)) * 5;
+    display_x -= 20;
+    display_y -= 30;
+    y_scale = 0.87f;
+    use_regular_out_screen = false;
+}
+else if (gameSerial == "SLES-02732") //Resident Evil - Survivor (Europe) (calibration target need to be shoot a little lower)
+{
+    if (display_x <= 0 || display_x >= 319 || display_y <= 0 || display_y >= 267)
+        return false;
 
-
+    //display_y = ((float)display_y * 232.0 / 267);
+    display_x = ((float)display_x * (318.0 - 2.0) / 320) + 2.0;
+    display_y -= (1 - (display_y / 268)) * 5;
+    display_x -= 20;
+    display_y -= 30;
+    y_scale = 0.87f;
+    use_regular_out_screen = false;
+}
+else if (gameSerial == "SLPS-02474") //Simple 1500 Series Vol. 24 - The Gun Shooting (Japan)
+{
+    if (display_x <= 0 || static_cast<u32>(display_x) >= m_crtc_state.display_width || display_y <= 0 ||
+        static_cast<u32>(display_y) >= m_crtc_state.display_height)
+    {
+        return false;
+    }
+    display_x -= 18;
+    use_regular_out_screen = false;
+}
+else if (gameSerial == "SLPM-86816") //Simple 1500 Series Vol. 63 - The Gun Shooting 2 (Japan)
+{
+    if (display_x <= 0 || static_cast<u32>(display_x) >= m_crtc_state.display_width || display_y <= 0 ||
+        static_cast<u32>(display_y) >= m_crtc_state.display_height)
+    {
+        return false;
+    }
+    display_x -= 18;
+    use_regular_out_screen = false;
+}
+else if (gameSerial == "SLUS-00405") //Time Crisis (USA)
+{
+    if (display_x < 0 || static_cast<u32>(display_x) >= m_crtc_state.display_width || display_y < 0 ||
+        static_cast<u32>(display_y) >= m_crtc_state.display_height)
+    {
+        return false;
+    }
+    x_scale = 0.945;
+    use_regular_out_screen = false;
+}
+else if (gameSerial == "SLUS-00381") //Star Wars - Rebel Assault II - The Hidden Empire (USA) (Disc 1)
+{
+    if (display_x < 0 || static_cast<u32>(display_x) >= m_crtc_state.display_width || display_y < 0 ||
+        static_cast<u32>(display_y) >= m_crtc_state.display_height)
+    {
+    return false;
+    }
+    display_x -= 22;
+    use_regular_out_screen = false;
+}
 
   //display_x = display_x - 30;
   if (x_scale != 1.0f)
