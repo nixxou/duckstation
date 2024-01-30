@@ -1046,9 +1046,7 @@ bool GPU::ConvertDisplayCoordinatesToBeamTicksAndLines(float display_x, float di
 {
 
  std::string gameSerial = System::GetGameSerial();
-  Log_DevPrintf("TESSSSSST ! %s :  %f %f - %d %d", gameSerial.c_str(), display_x, display_y,
-               m_crtc_state.display_width,
-               m_crtc_state.display_height);
+ //Log_DevPrintf("TESSSSSST ! %s :  %f %f - %d %d", gameSerial.c_str(), display_x, display_y, m_crtc_state.display_width, m_crtc_state.display_height);
  bool use_regular_out_screen = true;
  float y_scale = 1.0f;
  x_scale = 1.0f;
@@ -1071,7 +1069,7 @@ bool GPU::ConvertDisplayCoordinatesToBeamTicksAndLines(float display_x, float di
     display_y = (display_y*2);
     use_regular_out_screen = false;
 }
-else if (gameSerial == "SLES-00445") //Die Hard Trilogy
+else if (gameSerial == "SLES-00445") //Die Hard Trilogy Europe
 {
     if (display_x <= 0 || static_cast<u32>(display_x) >= m_crtc_state.display_width || display_y <= 0 ||
         static_cast<u32>(display_y) >= m_crtc_state.display_height)
@@ -1083,6 +1081,18 @@ else if (gameSerial == "SLES-00445") //Die Hard Trilogy
     display_y = display_y - 28;
     use_regular_out_screen = false;
 } 
+ else if (gameSerial == "SLUS-00119") // Die Hard Trilogy US rev 1
+{
+    if (display_x <= 0 || static_cast<u32>(display_x) >= m_crtc_state.display_width || display_y <= 0 ||
+        static_cast<u32>(display_y) >= m_crtc_state.display_height)
+    {
+        return false;
+    }
+
+    display_x = display_x - 39;
+    display_y = display_y - 5;
+    use_regular_out_screen = false;
+}
 else if (gameSerial == "SLUS-00654") // Elemental Gearbolt
 {
     if (display_x <= 0 || static_cast<u32>(display_x) >= m_crtc_state.display_width || display_y <= 0 ||
@@ -1140,7 +1150,7 @@ else if (gameSerial == "SLUS-00630") // Judge Dreed
 
     use_regular_out_screen = false;
 }
-else if (gameSerial == "SLUS-00293") // Lethal enforcer
+else if (gameSerial == "SLUS-00293") // Lethal enforcer USA
 {
     if (display_x <= 0 || static_cast<u32>(display_x) >= m_crtc_state.display_width || display_y <= 0 ||
         static_cast<u32>(display_y) >= m_crtc_state.display_height)
@@ -1149,6 +1159,20 @@ else if (gameSerial == "SLUS-00293") // Lethal enforcer
     }
     display_x = display_x - 20;
 
+    use_regular_out_screen = false;
+}
+else if (gameSerial == "SLES-00542") // Lethal enforcer EUR
+{
+    if (display_x <= 0 || static_cast<u32>(display_x) >= m_crtc_state.display_width || display_y <= 0 ||
+        static_cast<u32>(display_y) >= m_crtc_state.display_height)
+    {
+      return false;
+    }
+    display_x = display_x - 23;
+    display_y = ((float)display_y * (230.5 - 0.5) / 268.0) + 0.5;
+    display_y -= 8;
+
+    //y_scale = 1.1f;
     use_regular_out_screen = false;
 }
 else if (gameSerial == "SLUS-00503") // Maximum force
@@ -1229,6 +1253,17 @@ else if (gameSerial == "SCUS-94408") // Project - Horned Owl (USA)
     }
     display_x -= 16;
 
+    use_regular_out_screen = false;
+}
+else if (gameSerial == "HASH-2A8EE8AAA2279639") //Horned Owl (Japan).cue
+{
+    if (display_x <= 0 || static_cast<u32>(display_x) >= m_crtc_state.display_width || display_y <= 0 ||
+        static_cast<u32>(display_y) >= m_crtc_state.display_height)
+    {
+        return false;
+    }
+    display_x -= 16;
+    display_y -= 1;
     use_regular_out_screen = false;
 }
 else if (gameSerial == "SCES-02569") //Rescue Shot (Europe) (En,Fr,De,Es,It)
@@ -1313,6 +1348,19 @@ else if (gameSerial == "SLUS-00381") //Star Wars - Rebel Assault II - The Hidden
     return false;
     }
     display_x -= 22;
+    use_regular_out_screen = false;
+}
+else if (gameSerial == "SLUS-01015") // Die Hard Trilogy 2 - Viva Las Vegas (USA)
+{
+    if (display_x <= 0 || static_cast<u32>(display_x) >= m_crtc_state.display_width || display_y <= 0 ||
+        static_cast<u32>(display_y) >= m_crtc_state.display_height)
+    {
+    return false;
+    }
+
+    display_x = display_x - 59;
+    display_y += 13;
+
     use_regular_out_screen = false;
 }
 
