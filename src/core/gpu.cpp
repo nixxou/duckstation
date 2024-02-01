@@ -1049,7 +1049,7 @@ bool GPU::ConvertDisplayCoordinatesToBeamTicksAndLines(float display_x, float di
 {
 
  std::string gameSerial = System::GetGameSerial();
- //Log_DevPrintf("TESSSSSST ! %s :  %f %f - %d %d", gameSerial.c_str(), display_x, display_y, m_crtc_state.display_width, m_crtc_state.display_height);
+ Log_DevPrintf("TESSSSSST ! %s :  %f %f - %d %d", gameSerial.c_str(), display_x, display_y, m_crtc_state.display_width, m_crtc_state.display_height);
  bool use_regular_out_screen = true;
  float y_scale = 1.0f;
  x_scale = 1.0f;
@@ -1191,6 +1191,22 @@ else if (gameSerial == "SLUS-00503") // Maximum force
 
     use_regular_out_screen = false;
 }
+else if (gameSerial == "SLES-02244") //Mighty Hits Special (Europe) (En,Fr,De)
+{
+    if (display_x <= 0 || static_cast<u32>(display_x) >= m_crtc_state.display_width || display_y <= 0 ||
+        static_cast<u32>(display_y) >= m_crtc_state.display_height)
+    {
+      return false;
+    }
+
+    display_x = display_x - 25;
+    float max_total = static_cast<float>(m_crtc_state.display_height);
+    display_y = ((float)display_y * (275.0 - 25.0) / 275.0) + 25.0;
+
+    //display_y -= 2;
+
+    use_regular_out_screen = false;
+}
 else if (gameSerial == "SLES-03846") // Moorhen 3 - Chicken Chase (Europe) (En,Fr,De)
 {
     if (display_x <= 0 || display_x >= 319 || display_y <= 0 || display_y >= 267)
@@ -1311,6 +1327,17 @@ else if (gameSerial == "SLES-02732") //Resident Evil - Survivor (Europe) (calibr
     display_x -= 20;
     display_y -= 30;
     y_scale = 0.87f;
+    use_regular_out_screen = false;
+}
+else if (gameSerial == "SLUS-01087") // Resident Evil - Survivor (USA) (https://www.romhacking.net/download/hacks/4196/)
+{
+    if (display_x <= 0 || static_cast<u32>(display_x) >= m_crtc_state.display_width || display_y <= 0 ||
+        static_cast<u32>(display_y) >= m_crtc_state.display_height)
+    {
+        return false;
+    }
+    display_x -= 15;
+    display_y += 20;
     use_regular_out_screen = false;
 }
 else if (gameSerial == "SLPS-02474") //Simple 1500 Series Vol. 24 - The Gun Shooting (Japan)

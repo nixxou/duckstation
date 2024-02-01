@@ -88,6 +88,7 @@ private:
 
 
   bool useRecoil = false;
+  bool noRecoilOutScreen = false;
   void threadOutputs();
   std::thread* myThread = nullptr;
   bool quitThread = false;
@@ -97,6 +98,7 @@ private:
   int port = -1;
   HANDLE hPipe = nullptr;
   bool pipeConnected = false;
+  bool isOutScreen = false;
 
 
   TransferState m_transfer_state = TransferState::Idle;

@@ -47,6 +47,7 @@ static T DoMemoryRead(VirtualMemoryAddress address)
 GunCon::GunCon(u32 index) : Controller(index)
 {
   port = index;
+  Log_DevPrintf("GUN %d : CREATE GUN", port);
 }
 
 GunCon::~GunCon()
@@ -237,7 +238,7 @@ void GunCon::UpdatePosition()
 {
   if (useRecoil && active_game == "")
   {
-    
+    Log_DevPrintf("GUN %d : START GUN", port);
     pipeConnected = false;
     if (hPipe != nullptr)
     {
@@ -273,14 +274,35 @@ void GunCon::UpdatePosition()
 
     active_game = System::GetGameSerial();
     myThread = new std::thread(&GunCon::threadOutputs, this);
+    Log_DevPrintf("GUN %d : THREAD START GUN", port);
   }
+
   float display_x, display_y;
   const auto& [window_x, window_y] =
     (m_has_relative_binds) ? GetAbsolutePositionFromRelativeAxes() : InputManager::GetPointerAbsolutePosition(0);
   g_gpu->ConvertScreenCoordinatesToDisplayCoordinates(window_x, window_y, &display_x, &display_y);
 
   // are we within the active display area?
+  bool outscreen = false;
   u32 tick, line;
+  if (display_x < 0 || display_y < 0 ||
+      !g_gpu->ConvertDisplayCoordinatesToBeamTicksAndLines(display_x, display_y, m_x_scale, &tick, &line))
+  {
+    outscreen = true;
+  }
+  isOutScreen = outscreen;
+
+  if (outscreen || m_shoot_offscreen)
+  {
+    Log_DebugPrintf("Lightgun out of range for window coordinates %.0f,%.0f", window_x, window_y);
+    m_position_x = 0x01;
+    m_position_y = 0x0A;
+    return;
+  }
+
+
+
+  /*
   if (display_x < 0 || display_y < 0 ||
       !g_gpu->ConvertDisplayCoordinatesToBeamTicksAndLines(display_x, display_y, m_x_scale, &tick, &line) ||
       m_shoot_offscreen)
@@ -290,6 +312,9 @@ void GunCon::UpdatePosition()
     m_position_y = 0x0A;
     return;
   }
+  */
+
+
 
   // 8MHz units for X = 44100*768*11/7 = 53222400 / 8000000 = 6.6528
   const double divider = static_cast<double>(g_gpu->GetCRTCFrequency()) / 8000000.0;
@@ -426,6 +451,297 @@ void GunCon::threadOutputs()
       }
     }
 
+    if (active_game == "SLES-03990") // Extreme Ghostbusters - The Ultimate Invasion (Europe) (En,Fr,De,Es,It,Nl)
+    {
+      if (port == 0)
+      {
+        u16 ammoCount = DoMemoryRead<u16>(0x67698);
+        if (ammoCount == 0 || ammoCount == 65535) // To avoid recoil switch during game init
+            outOfAmmo = true;
+      }
+      if (port == 1)
+      {
+        u8 ammoCount = DoMemoryRead<u16>(0x6772c);
+        if (ammoCount == 0 || ammoCount == 65535)
+            outOfAmmo = true;
+      }
+    }
+
+    if (active_game == "SCES-02543") //Ghoul Panic (Europe) (En,Fr,De,Es,It)
+    {
+      if (port == 0)
+      {
+        u8 ammoCount = DoMemoryRead<u8>(0x2eb4e);
+
+        if (ammoCount == 0)
+            outOfAmmo = true;
+
+      }
+      if (port == 1)
+      {
+        u8 ammoCount = DoMemoryRead<u8>(0x2ec7e);
+
+        if (ammoCount == 0)
+            outOfAmmo = true;
+      }
+    }
+
+    if (active_game == "SLUS-01398") //Gunfighter - The Legend of Jesse James (USA)
+    {
+      if (port == 0)
+      {
+        u8 ammoCount = DoMemoryRead<u8>(0xe6cc8);
+
+        if (ammoCount == 0)
+            outOfAmmo = true;
+      }
+    }
+
+    if (active_game == "HASH-2A8EE8AAA2279639") //Horned Owl (Japan)
+    {
+      if (port == 0)
+      {
+        u16 ammoCount = DoMemoryRead<u16>(0xb8804);
+
+        if (ammoCount < 520)
+            outOfAmmo = true;
+      }
+
+      if (port == 1)
+      {
+        u16 ammoCount = DoMemoryRead<u16>(0xb8814);
+
+        if (ammoCount < 520)
+            outOfAmmo = true;
+      }
+    }
+
+    if (active_game == "SLUS-00630") //Judge Dredd (USA)
+    {
+      if (port == 0)
+      {
+        u8 ammoCount = DoMemoryRead<u8>(0xda9a1);
+
+        if (ammoCount == 0)
+            outOfAmmo = true;
+      }
+
+      if (port == 1)
+      {
+        u8 ammoCount = DoMemoryRead<u8>(0xda9e9);
+
+        if (ammoCount == 0)
+            outOfAmmo = true;
+      }
+    }
+
+    if (active_game == "SLES-00542") //Lethal Enforcers (Europe)
+    {
+      if (port == 0)
+      {
+        u8 ammoCount = DoMemoryRead<u8>(0x78358);
+
+        if (ammoCount == 0)
+            outOfAmmo = true;
+      }
+
+      if (port == 1)
+      {
+        u8 ammoCount = DoMemoryRead<u8>(0x7838c);
+
+        if (ammoCount == 0)
+            outOfAmmo = true;
+      }
+    }
+
+    if (active_game == "SLUS-00293") //Lethal Enforcers I & II (USA)
+    {
+      if (port == 0)
+      {
+        u8 ammoCount = DoMemoryRead<u8>(0x78c38);
+
+        if (ammoCount == 0)
+            outOfAmmo = true;
+      }
+
+      if (port == 1)
+      {
+        u8 ammoCount = DoMemoryRead<u8>(0x78c6c);
+
+        if (ammoCount == 0)
+            outOfAmmo = true;
+      }
+    }
+
+    if (active_game == "SLUS-00503") //Maximum Force (USA)
+    {
+      if (port == 0)
+      {
+        u8 ammoCount = DoMemoryRead<u8>(0x6e844);
+
+        if (ammoCount == 0)
+            outOfAmmo = true;
+      }
+
+      if (port == 1)
+      {
+        u8 ammoCount = DoMemoryRead<u8>(0x6e8d4);
+
+        if (ammoCount == 0)
+            outOfAmmo = true;
+      }
+    }
+
+    if (active_game == "SLUS-00481") // Point Blank (USA)
+    {
+      if (port == 0)
+      {
+        u8 ammoCount = DoMemoryRead<u8>(0xad1a8);
+
+        if (ammoCount == 0)
+            outOfAmmo = true;
+      }
+
+      if (port == 1)
+      {
+        u8 ammoCount = DoMemoryRead<u8>(0xad1aa);
+
+        if (ammoCount == 0)
+            outOfAmmo = true;
+      }
+    }
+
+    if (active_game == "SLUS-00796") // Point Blank 2 (USA)
+    {
+      if (port == 0)
+      {
+        u8 ammoCount = DoMemoryRead<u8>(0xb29f4);
+
+        if (ammoCount == 0)
+            outOfAmmo = true;
+      }
+
+
+      /*
+      if (port == 1)
+      {
+        u8 ammoCount = DoMemoryRead<u8>(0xad1aa);
+
+        if (ammoCount == 0)
+            outOfAmmo = true;
+      }
+      */
+    }
+
+    if (active_game == "SLUS-01354") //Point Blank 3 (USA)
+    {
+      if (port == 0)
+      {
+        u8 ammoCount = DoMemoryRead<u8>(0x9d93c);
+
+        if (ammoCount == 0)
+            outOfAmmo = true;
+      }
+
+     
+      if (port == 1)
+      {
+        u8 ammoCount = DoMemoryRead<u8>(0x9d93e);
+
+        if (ammoCount == 0)
+            outOfAmmo = true;
+      }
+    }
+
+    if (active_game == "SLUS-00796") // Policenauts (Japan) (Disc 1)
+    {
+      if (port == 0)
+      {
+        u16 ammoCount = DoMemoryRead<u16>(0x62ab0);
+
+        if (ammoCount == 0)
+            outOfAmmo = true;
+      }
+      // 62ab0 u16
+
+    }
+
+    if (active_game == "SCUS-94408") //Project - Horned Owl (USA)
+    {
+      if (port == 0)
+      {
+        u8 ammoCount = DoMemoryRead<u8>(0xb94bd);
+
+        if (ammoCount <= 2)
+            outOfAmmo = true;
+      }
+
+      if (port == 1)
+      {
+        u8 ammoCount = DoMemoryRead<u8>(0xb94cd);
+
+        if (ammoCount == 0)
+            outOfAmmo = true;
+      }
+    }
+
+    if (active_game == "SLES-02732") //Resident Evil - Survivor (Europe)
+    {
+      if (port == 0)
+      {
+        u16 ammoCount = DoMemoryRead<u16>(0xaf9b2);
+
+        if (ammoCount == 0)
+            outOfAmmo = true;
+      }
+    }
+
+    if (active_game == "SLES-02744") //Resident Evil - Survivor (France)
+    {
+      if (port == 0)
+      {
+        u16 ammoCount = DoMemoryRead<u16>(0xafc6a);
+
+        if (ammoCount == 0)
+            outOfAmmo = true;
+      }
+    }
+
+    if (active_game == "SLUS-01087") //Resident Evil - Survivor (USA)
+    {
+      
+      if (port == 0)
+      {
+        u16 ammoCount = DoMemoryRead<u16>(0xaf802);
+
+        if (ammoCount == 0)
+            outOfAmmo = true;
+      }
+      
+    }
+
+    if (active_game == "SLPS-02474") //Simple 1500 Series Vol. 24 - The Gun Shooting (Japan) (Didn't found memory address for P2)
+    {
+      if (port == 0)
+      {
+        u16 ammoCount = DoMemoryRead<u16>(0x1ffe44);
+
+        if (ammoCount == 0)
+            outOfAmmo = true;
+      }
+    }
+
+    if (active_game == "SLUS-00405") //Time Crisis
+    {
+      if (port == 0)
+      {
+        u16 ammoCount = DoMemoryRead<u16>(0xb1ddc);
+
+        if (ammoCount == 0)
+            outOfAmmo = true;
+      }
+    }
+
     if (active_game == "SLUS-01336") //Time Crisis - Project Titan (USA)
     {
       if (port == 0)
@@ -445,6 +761,9 @@ void GunCon::threadOutputs()
       output_current = 1;
     if (output_current && gunAuto)
       output_current = 2;
+
+    if (noRecoilOutScreen && isOutScreen)
+      output_current = 0;
 
     if (output_previous != output_current)
     {
@@ -566,6 +885,7 @@ void GunCon::LoadSettings(SettingsInterface& si, const char* section)
 {
   Controller::LoadSettings(si, section);
   useRecoil = si.GetBoolValue(section, "UseRecoil");
+  noRecoilOutScreen = si.GetBoolValue(section, "NoRecoilOutScreen");
 
   m_x_scale = si.GetFloatValue(section, "XScale", 1.0f);
 
