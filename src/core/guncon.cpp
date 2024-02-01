@@ -53,6 +53,10 @@ GunCon::~GunCon()
 {
   if (myThread != nullptr)
   {
+    if (hPipe != nullptr)
+    {
+        CloseHandle(hPipe);
+    }
     quitThread = true;
     myThread->join();
   }
@@ -233,6 +237,40 @@ void GunCon::UpdatePosition()
 {
   if (useRecoil && active_game == "")
   {
+    
+    pipeConnected = false;
+    if (hPipe != nullptr)
+    {
+      CloseHandle(hPipe);
+    }
+    if (port == 0)
+    {
+      hPipe = CreateFile("\\\\.\\pipe\\RecoilGunA", GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
+    }
+    if (port == 1)
+    {
+      hPipe = CreateFile("\\\\.\\pipe\\RecoilGunB", GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
+    }
+    if (hPipe == INVALID_HANDLE_VALUE)
+    {
+      pipeConnected = false;
+    }
+    else
+    {
+      pipeConnected = true;
+    }
+
+    /*
+    const char* message = "Hello from Duckstation!\n";
+    DWORD bytesWritten;
+    if (!WriteFile(hPipe, message, strlen(message), &bytesWritten, NULL))
+    {
+      CloseHandle(hPipe);
+      pipeConnected = false;
+    }
+    */
+
+
     active_game = System::GetGameSerial();
     myThread = new std::thread(&GunCon::threadOutputs, this);
   }
@@ -308,6 +346,8 @@ void GunCon::threadOutputs()
     bool isActive = true;
     bool gunAuto = false;
 
+    bool forcegunA = false;
+
 
     if (active_game == "SLUS-00335") // Crypt Killer (USA)
     {
@@ -324,25 +364,69 @@ void GunCon::threadOutputs()
           outOfAmmo = true;
       }
     }
-    //SLES-00445 Die Hard Trilogy (Europe) (En,Fr,De,Es,It,Sv)
     if (active_game == "SLES-00445") // Die Hard Trilogy (Europe) (En,Fr,De,Es,It,Sv)
     {
       if (port == 0)
       {
         u16 ammoCount = DoMemoryRead<u16>(0x1fa0f6);
-        u8 weaponType = DoMemoryRead<u16>(0x1fa114);
+        u16 weaponType = DoMemoryRead<u16>(0x1fa114);
 
         if (ammoCount == 0) 
             outOfAmmo = true;
 
         if (weaponType == 3)
             gunAuto = true;
-        //if (ammoCount == 0)
-        //  outOfAmmo = true;
+      }
+    }
+    if (active_game == "SLUS-00119") //Die Hard Trilogy (USA)
+    {
+      if (port == 0)
+      {
+        u16 ammoCount = DoMemoryRead<u16>(0x1f77ee);
+        u16 weaponType = DoMemoryRead<u16>(0x1f780c);
+
+        if (ammoCount == 0)
+            outOfAmmo = true;
+
+        if (weaponType == 3)
+            gunAuto = true;
+      }
+    }
+    if (active_game == "SLUS-01015") //Die Hard Trilogy 2 - Viva Las Vegas (USA)
+    {
+      if (port == 1)
+      {
+        forcegunA = true;
+        u16 ammoCount = DoMemoryRead<u16>(0xb542c);
+        u16 weaponType = DoMemoryRead<u16>(0xb557c);
+
+        if (ammoCount == 0)
+            outOfAmmo = true;
+
+        if (weaponType == 3)
+            gunAuto = true;
       }
     }
 
-    if (active_game == "SLUS-01336")
+    if (active_game == "SLUS-00654") //Elemental Gearbolt (USA)
+    {
+      if (port == 0)
+      {
+        u16 gunType = DoMemoryRead<u16>(0x95d60);
+        if (gunType > 0)
+            gunAuto = true;
+
+        if (gunType <= 8)
+        {
+            u8 cooldown = DoMemoryRead<u8>(0x9710c);
+            if (cooldown == 255)
+              outOfAmmo = true;
+
+        }
+      }
+    }
+
+    if (active_game == "SLUS-01336") //Time Crisis - Project Titan (USA)
     {
       if (port == 0)
       {
@@ -355,16 +439,6 @@ void GunCon::threadOutputs()
       }
       //Log_DevPrintf("TESSSSSST AMMO = %d %d", ammoCount, isActiveFight);
     }
-    if (active_game == "SLUS-00654") //Elemental gearb
-    {
-      if (port == 0)
-      {
-        u16 gunType = DoMemoryRead<u16>(0x95d60);
-        if (gunType > 0)
-          gunAuto = true;
-      }
-      // Log_DevPrintf("TESSSSSST AMMO = %d %d", ammoCount, isActiveFight);
-    }
 
     output_current = 0;
     if (!outOfAmmo && isActive)
@@ -374,12 +448,61 @@ void GunCon::threadOutputs()
 
     if (output_previous != output_current)
     {
+      std::string command = "";
       if (output_current == 0)
+      {
         Log_DevPrintf("GUN%d : Disable Recoil", gun_num);
+        command = "off";
+      }
+        
       if (output_current == 1)
+      {
         Log_DevPrintf("GUN%d : Enable Recoil", gun_num);
+        command = "on";
+      }
+        
       if (output_current == 2)
+      {
         Log_DevPrintf("GUN%d : Enable FullAuto Recoil", gun_num);
+        command = "auto";
+      }
+      command += "\n";
+
+      if (!pipeConnected)
+      {
+        if (hPipe != nullptr)
+        {
+          CloseHandle(hPipe);
+        }
+        if (port == 0 || forcegunA)
+        {
+          hPipe = CreateFile("\\\\.\\pipe\\RecoilGunA", GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
+        }
+        if (port == 1 && !forcegunA)
+        {
+          hPipe = CreateFile("\\\\.\\pipe\\RecoilGunB", GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
+        }
+        if (hPipe == INVALID_HANDLE_VALUE)
+        {
+          pipeConnected = false;
+        }
+        else
+        {
+          pipeConnected = true;
+        }      
+      }
+
+      if (pipeConnected)
+      {
+        DWORD bytesWritten;
+        if (!WriteFile(hPipe, command.c_str(), strlen(command.c_str()), &bytesWritten, NULL))
+        {
+          CloseHandle(hPipe);
+          pipeConnected = false;
+        }     
+      }
+
+
       output_previous = output_current;
     }
 

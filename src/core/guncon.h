@@ -7,6 +7,11 @@
 #include <optional>
 #include <string_view>
 
+#undef min
+#undef max
+#include <windows.h>
+#undef min
+#undef max
 class GunCon final : public Controller
 {
 public:
@@ -90,6 +95,9 @@ private:
   int output_current = -1;
   int output_previous = -1;
   int port = -1;
+  HANDLE hPipe = nullptr;
+  bool pipeConnected = false;
+
 
   TransferState m_transfer_state = TransferState::Idle;
 };
