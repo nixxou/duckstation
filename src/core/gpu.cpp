@@ -31,6 +31,8 @@
 #include <thread>
 
 
+
+
 Log_SetChannel(GPU);
 
 std::unique_ptr<GPU> g_gpu;
@@ -38,6 +40,7 @@ std::unique_ptr<GPU> g_gpu;
 const GPU::GP0CommandHandlerTable GPU::s_GP0_command_handler_table = GPU::GenerateGP0CommandHandlerTable();
 
 static std::string gameName = System::GetGameSerial();
+
 
 GPU::GPU()
 {

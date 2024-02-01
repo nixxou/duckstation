@@ -18,6 +18,8 @@
 
 #include <array>
 
+#include "cpu_core.h"
+
 #ifdef _DEBUG
 #include "common/log.h"
 Log_SetChannel(GunCon);
@@ -25,12 +27,35 @@ Log_SetChannel(GunCon);
 
 static constexpr std::array<u8, static_cast<size_t>(GunCon::Binding::ButtonCount)> s_button_indices = {{13, 3, 14}};
 
+template<typename T>
+static T DoMemoryRead(VirtualMemoryAddress address)
+{
+  using UnsignedType = typename std::make_unsigned_t<T>;
+  static_assert(std::is_same_v<UnsignedType, u8> || std::is_same_v<UnsignedType, u16> ||
+                std::is_same_v<UnsignedType, u32>);
+
+  T result;
+  if constexpr (std::is_same_v<UnsignedType, u8>)
+    return CPU::SafeReadMemoryByte(address, &result) ? result : static_cast<T>(0);
+  else if constexpr (std::is_same_v<UnsignedType, u16>)
+    return CPU::SafeReadMemoryHalfWord(address, &result) ? result : static_cast<T>(0);
+  else // if constexpr (std::is_same_v<UnsignedType, u32>)
+    return CPU::SafeReadMemoryWord(address, &result) ? result : static_cast<T>(0);
+}
+
+
 GunCon::GunCon(u32 index) : Controller(index)
 {
+  port = index;
 }
 
 GunCon::~GunCon()
 {
+  if (myThread != nullptr)
+  {
+    quitThread = true;
+    myThread->join();
+  }
   if (!m_cursor_path.empty())
   {
     const u32 cursor_index = GetSoftwarePointerIndex();
@@ -206,6 +231,11 @@ bool GunCon::Transfer(const u8 data_in, u8* data_out)
 
 void GunCon::UpdatePosition()
 {
+  if (useRecoil && active_game == "")
+  {
+    active_game = System::GetGameSerial();
+    myThread = new std::thread(&GunCon::threadOutputs, this);
+  }
   float display_x, display_y;
   const auto& [window_x, window_y] =
     (m_has_relative_binds) ? GetAbsolutePositionFromRelativeAxes() : InputManager::GetPointerAbsolutePosition(0);
@@ -255,6 +285,109 @@ void GunCon::UpdateSoftwarePointerPosition()
 
   const auto& [window_x, window_y] = GetAbsolutePositionFromRelativeAxes();
   ImGuiManager::SetSoftwareCursorPosition(GetSoftwarePointerIndex(), window_x, window_y);
+}
+
+void GunCon::threadOutputs()
+{
+  Log_DevPrintf("THREAD : Thread active");
+  int currentState = (int)System::GetState();
+
+  while (currentState == 2 || currentState == 3)
+  {
+    if (quitThread)
+      break;
+
+    int gun_num = 1;
+    if (port == 1)
+      gun_num = 2;
+
+    //u32 ammoCount = 10;
+    //u8 isActiveFight = 1;
+
+    bool outOfAmmo = false;
+    bool isActive = true;
+    bool gunAuto = false;
+
+
+    if (active_game == "SLUS-00335") // Crypt Killer (USA)
+    {
+      if (port == 0)
+      {
+        u8 ammoCount = DoMemoryRead<u8>(0xfc185);
+        if (ammoCount == 0)
+          outOfAmmo = true;
+      }
+      if (port == 1)
+      {
+        u8 ammoCount = DoMemoryRead<u8>(0xfc1e1);
+        if (ammoCount == 0)
+          outOfAmmo = true;
+      }
+    }
+    //SLES-00445 Die Hard Trilogy (Europe) (En,Fr,De,Es,It,Sv)
+    if (active_game == "SLES-00445") // Die Hard Trilogy (Europe) (En,Fr,De,Es,It,Sv)
+    {
+      if (port == 0)
+      {
+        u16 ammoCount = DoMemoryRead<u16>(0x1fa0f6);
+        u8 weaponType = DoMemoryRead<u16>(0x1fa114);
+
+        if (ammoCount == 0) 
+            outOfAmmo = true;
+
+        if (weaponType == 3)
+            gunAuto = true;
+        //if (ammoCount == 0)
+        //  outOfAmmo = true;
+      }
+    }
+
+    if (active_game == "SLUS-01336")
+    {
+      if (port == 0)
+      {
+        u32 ammoCount = DoMemoryRead<u16>(0x7d47c);
+        u8 isActiveFight = DoMemoryRead<u8>(0x1d2575);
+        if (ammoCount == 0)
+          outOfAmmo = true;
+        if (isActiveFight == 0)
+          isActive = false;
+      }
+      //Log_DevPrintf("TESSSSSST AMMO = %d %d", ammoCount, isActiveFight);
+    }
+    if (active_game == "SLUS-00654") //Elemental gearb
+    {
+      if (port == 0)
+      {
+        u16 gunType = DoMemoryRead<u16>(0x95d60);
+        if (gunType > 0)
+          gunAuto = true;
+      }
+      // Log_DevPrintf("TESSSSSST AMMO = %d %d", ammoCount, isActiveFight);
+    }
+
+    output_current = 0;
+    if (!outOfAmmo && isActive)
+      output_current = 1;
+    if (output_current && gunAuto)
+      output_current = 2;
+
+    if (output_previous != output_current)
+    {
+      if (output_current == 0)
+        Log_DevPrintf("GUN%d : Disable Recoil", gun_num);
+      if (output_current == 1)
+        Log_DevPrintf("GUN%d : Enable Recoil", gun_num);
+      if (output_current == 2)
+        Log_DevPrintf("GUN%d : Enable FullAuto Recoil", gun_num);
+      output_previous = output_current;
+    }
+
+    //Log_DevPrintf("THREAD : Thread active %s %d", active_game.c_str(), port);
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    currentState = (int)System::GetState();
+  }
+  Log_DevPrintf("THREAD : Thread stop");
 }
 
 std::unique_ptr<GunCon> GunCon::Create(u32 index)
@@ -309,6 +442,7 @@ const Controller::ControllerInfo GunCon::INFO = {
 void GunCon::LoadSettings(SettingsInterface& si, const char* section)
 {
   Controller::LoadSettings(si, section);
+  useRecoil = si.GetBoolValue(section, "UseRecoil");
 
   m_x_scale = si.GetFloatValue(section, "XScale", 1.0f);
 

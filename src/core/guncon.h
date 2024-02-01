@@ -81,5 +81,15 @@ private:
   bool m_shoot_offscreen = false;
   bool m_has_relative_binds = false;
 
+
+  bool useRecoil = false;
+  void threadOutputs();
+  std::thread* myThread = nullptr;
+  bool quitThread = false;
+  std::string active_game = "";
+  int output_current = -1;
+  int output_previous = -1;
+  int port = -1;
+
   TransferState m_transfer_state = TransferState::Idle;
 };
