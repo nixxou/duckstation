@@ -46,7 +46,7 @@ public:
 
   float GetBindState(u32 index) const override;
   void SetBindState(u32 index, float value) override;
-
+  void SetBindState(u32 index, float value, bool skipRegisterTrigger);
   void ResetTransferState() override;
   bool Transfer(const u8 data_in, u8* data_out) override;
 
@@ -99,6 +99,16 @@ private:
   HANDLE hPipe = nullptr;
   bool pipeConnected = false;
   bool isOutScreen = false;
+
+
+  bool triggerIsActive = false;
+  std::chrono::microseconds::rep triggerLastPress = 0;
+  std::chrono::microseconds::rep triggerLastRelease = 0;
+
+  int lastAmmo = INT32_MAX;
+  int lastWeapon = 0;
+  int lastCharged = 0;
+  bool fullAutoActive = false;
 
 
   TransferState m_transfer_state = TransferState::Idle;

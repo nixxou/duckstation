@@ -43,7 +43,6 @@ static T DoMemoryRead(VirtualMemoryAddress address)
     return CPU::SafeReadMemoryWord(address, &result) ? result : static_cast<T>(0);
 }
 
-
 GunCon::GunCon(u32 index) : Controller(index)
 {
   port = index;
@@ -56,7 +55,7 @@ GunCon::~GunCon()
   {
     if (hPipe != nullptr)
     {
-        CloseHandle(hPipe);
+      CloseHandle(hPipe);
     }
     quitThread = true;
     myThread->join();
@@ -110,19 +109,21 @@ float GunCon::GetBindState(u32 index) const
   return static_cast<float>(((m_button_state >> bit) & 1u) ^ 1u);
 }
 
-void GunCon::SetBindState(u32 index, float value)
+void GunCon::SetBindState(u32 index, float value, bool skipRegisterTrigger)
 {
   const bool pressed = (value >= 0.5f);
+
   if (index == static_cast<u32>(Binding::ShootOffscreen))
   {
     if (m_shoot_offscreen != pressed)
     {
       m_shoot_offscreen = pressed;
-      SetBindState(static_cast<u32>(Binding::Trigger), pressed);
+      SetBindState(static_cast<u32>(Binding::Trigger), pressed, true);
     }
 
     return;
   }
+
   else if (index >= static_cast<u32>(Binding::ButtonCount))
   {
     if (index >= static_cast<u32>(Binding::BindingCount) || !m_has_relative_binds)
@@ -133,7 +134,64 @@ void GunCon::SetBindState(u32 index, float value)
       m_relative_pos[index - static_cast<u32>(Binding::RelativeLeft)] = value;
       UpdateSoftwarePointerPosition();
     }
+    return;
+  }
 
+  if (pressed)
+    m_button_state &= ~(u16(1) << s_button_indices[static_cast<u8>(index)]);
+  else
+    m_button_state |= u16(1) << s_button_indices[static_cast<u8>(index)];
+}
+
+void GunCon::SetBindState(u32 index, float value)
+{
+  const bool pressed = (value >= 0.5f);
+
+  if (index == static_cast<u32>(Binding::ShootOffscreen))
+  {
+    if (m_shoot_offscreen != pressed)
+    {
+      if (triggerIsActive)
+      {
+        triggerIsActive = false;
+        triggerLastRelease =
+          std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch())
+            .count();
+      }
+      m_shoot_offscreen = pressed;
+      SetBindState(static_cast<u32>(Binding::Trigger), pressed, true);
+    }
+    return;
+  }
+
+  if (index == 0)
+  {
+    if (pressed)
+    {
+      triggerIsActive = true;
+      triggerLastPress =
+        std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch())
+          .count();
+    }
+    else
+    {
+      triggerIsActive = false;
+      triggerLastRelease =
+        std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch())
+          .count();
+    }
+  }
+
+  else if (index >= static_cast<u32>(Binding::ButtonCount))
+  {
+    if (index >= static_cast<u32>(Binding::BindingCount) || !m_has_relative_binds)
+      return;
+
+    if (m_relative_pos[index - static_cast<u32>(Binding::RelativeLeft)] != value)
+    {
+      m_relative_pos[index - static_cast<u32>(Binding::RelativeLeft)] = value;
+      UpdateSoftwarePointerPosition();
+    }
     return;
   }
 
@@ -271,7 +329,6 @@ void GunCon::UpdatePosition()
     }
     */
 
-
     active_game = System::GetGameSerial();
     myThread = new std::thread(&GunCon::threadOutputs, this);
     Log_DevPrintf("GUN %d : THREAD START GUN", port);
@@ -300,8 +357,6 @@ void GunCon::UpdatePosition()
     return;
   }
 
-
-
   /*
   if (display_x < 0 || display_y < 0 ||
       !g_gpu->ConvertDisplayCoordinatesToBeamTicksAndLines(display_x, display_y, m_x_scale, &tick, &line) ||
@@ -313,8 +368,6 @@ void GunCon::UpdatePosition()
     return;
   }
   */
-
-
 
   // 8MHz units for X = 44100*768*11/7 = 53222400 / 8000000 = 6.6528
   const double divider = static_cast<double>(g_gpu->GetCRTCFrequency()) / 8000000.0;
@@ -364,60 +417,125 @@ void GunCon::threadOutputs()
     if (port == 1)
       gun_num = 2;
 
-    //u32 ammoCount = 10;
-    //u8 isActiveFight = 1;
+    // u32 ammoCount = 10;
+    // u8 isActiveFight = 1;
 
     bool outOfAmmo = false;
     bool isActive = true;
     bool gunAuto = false;
-
     bool forcegunA = false;
 
+    // New
+    long max_time_lastPress = 100000;
+    std::chrono::microseconds::rep timestamp =
+      std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch())
+        .count();
+
+    std::string output_signal = "";
 
     if (active_game == "SLUS-00335") // Crypt Killer (USA)
     {
+      u8 ammoCount = 0;
       if (port == 0)
       {
-        u8 ammoCount = DoMemoryRead<u8>(0xfc185);
-        if (ammoCount == 0)
-          outOfAmmo = true;
+        ammoCount = DoMemoryRead<u8>(0xfc185);
       }
       if (port == 1)
       {
-        u8 ammoCount = DoMemoryRead<u8>(0xfc1e1);
-        if (ammoCount == 0)
-          outOfAmmo = true;
+        ammoCount = DoMemoryRead<u8>(0xfc1e1);
       }
+      if (ammoCount < lastAmmo)
+      {
+        long diff = timestamp - triggerLastPress;
+        if (diff < (max_time_lastPress*2)) //Bigger delay needed
+        {
+          output_signal = "gunshot";
+        }
+      }
+      lastAmmo = ammoCount;
     }
     if (active_game == "SLES-00445") // Die Hard Trilogy (Europe) (En,Fr,De,Es,It,Sv)
     {
       if (port == 0)
       {
         u16 ammoCount = DoMemoryRead<u16>(0x1fa0f6);
+        u16 secondWeaponAmmo = DoMemoryRead<u16>(0x1fa126);
+        ammoCount += secondWeaponAmmo;
         u16 weaponType = DoMemoryRead<u16>(0x1fa114);
 
-        if (ammoCount == 0) 
-            outOfAmmo = true;
-
-        if (weaponType == 3)
-            gunAuto = true;
+        if (fullAutoActive && (!triggerIsActive || ammoCount == 0))
+        {
+          output_signal = "auto_off";
+          fullAutoActive = false;
+        }
+        else
+        {
+          if (ammoCount < lastAmmo)
+          {
+            long long diff = timestamp - triggerLastPress;
+            if (diff < max_time_lastPress)
+            {
+              if (weaponType == 3)
+              {
+                if (!fullAutoActive)
+                {
+                  fullAutoActive = true;
+                  output_signal = "auto_on";
+                }
+              }
+              else
+              {
+                output_signal = "gunshot";
+              }
+              triggerLastPress = 0;
+            }
+          }
+        }
+        lastAmmo = ammoCount;
       }
     }
-    if (active_game == "SLUS-00119") //Die Hard Trilogy (USA)
+    if (active_game == "SLUS-00119") // Die Hard Trilogy (USA)
     {
+
       if (port == 0)
       {
         u16 ammoCount = DoMemoryRead<u16>(0x1f77ee);
+        u16 secondWeaponAmmo = DoMemoryRead<u16>(0x1f781e);
+        ammoCount += secondWeaponAmmo;
         u16 weaponType = DoMemoryRead<u16>(0x1f780c);
 
-        if (ammoCount == 0)
-            outOfAmmo = true;
-
-        if (weaponType == 3)
-            gunAuto = true;
+        if (fullAutoActive && (!triggerIsActive || ammoCount == 0))
+        {
+          output_signal = "auto_off";
+          fullAutoActive = false;
+        }
+        else
+        {
+          if (ammoCount < lastAmmo)
+          {
+            long long diff = timestamp - triggerLastPress;
+            if (diff < max_time_lastPress)
+            {
+              if (weaponType == 3)
+              {
+                if (!fullAutoActive)
+                {
+                  fullAutoActive = true;
+                  output_signal = "auto_on";
+                }
+              }
+              else
+              {
+                output_signal = "gunshot";
+              }
+              triggerLastPress = 0;
+            }
+          }
+        }
+        lastAmmo = ammoCount;
       }
     }
-    if (active_game == "SLUS-01015") //Die Hard Trilogy 2 - Viva Las Vegas (USA)
+    if (active_game == "SLUS-01015") // Die Hard Trilogy 2 - Viva Las Vegas (USA)
     {
       if (port == 1)
       {
@@ -425,255 +543,447 @@ void GunCon::threadOutputs()
         u16 ammoCount = DoMemoryRead<u16>(0xb542c);
         u16 weaponType = DoMemoryRead<u16>(0xb557c);
 
-        if (ammoCount == 0)
-            outOfAmmo = true;
-
-        if (weaponType == 3)
-            gunAuto = true;
+        if (fullAutoActive && (!triggerIsActive || ammoCount == 0))
+        {
+          output_signal = "auto_off";
+          fullAutoActive = false;
+        }
+        else
+        {
+          if (ammoCount < lastAmmo)
+          {
+            long long diff = timestamp - triggerLastPress;
+            if (diff < max_time_lastPress)
+            {
+              if (weaponType == 3)
+              {
+                if (!fullAutoActive)
+                {
+                  fullAutoActive = true;
+                  output_signal = "auto_on";
+                }
+              }
+              else
+              {
+                output_signal = "gunshot";
+              }
+              triggerLastPress = 0;
+            }
+          }
+        }
+        lastAmmo = ammoCount;
       }
     }
 
-    if (active_game == "SLUS-00654") //Elemental Gearbolt (USA)
+    if (active_game == "SLUS-00654") // Elemental Gearbolt (USA)
     {
+      u16 gunType = 0;
+      u8 cooldown = 255;
       if (port == 0)
       {
-        u16 gunType = DoMemoryRead<u16>(0x95d60);
-        if (gunType > 0)
-            gunAuto = true;
-
-        if (gunType <= 8)
+        gunType = DoMemoryRead<u16>(0x95d60);
+        cooldown = DoMemoryRead<u8>(0x9710c);
+      }
+      if (port == 1)
+      {
+        gunType = DoMemoryRead<u16>(0x95d72);
+        cooldown = DoMemoryRead<u8>(0x9711c);
+      }
+      
+      if (fullAutoActive && (!triggerIsActive || cooldown == 255))
+      {
+        output_signal = "machinegun_off";
+        fullAutoActive = false;
+      }
+      if (cooldown < 255)
+      {
+        if (lastAmmo == 1)
         {
-            u8 cooldown = DoMemoryRead<u8>(0x9710c);
-            if (cooldown == 255)
-              outOfAmmo = true;
-
+          lastAmmo = 0;
+          long diff = timestamp - triggerLastPress;
+          if (diff < max_time_lastPress)
+          {
+            if (gunType == 16 && !fullAutoActive)
+            {
+              fullAutoActive = true;
+              output_signal = "machinegun_on";
+            }
+            else if (gunType == 8)
+            {
+              output_signal = "tripleshot";
+            }
+            else
+            {
+              output_signal = "gunshot";
+            }
+            triggerLastPress = 0;
+          }
         }
       }
+      else
+      {
+        lastAmmo = 1;
+      }
+      
     }
 
     if (active_game == "SLES-03990") // Extreme Ghostbusters - The Ultimate Invasion (Europe) (En,Fr,De,Es,It,Nl)
     {
+      u16 ammoCount = 0;
       if (port == 0)
       {
-        u16 ammoCount = DoMemoryRead<u16>(0x67698);
-        if (ammoCount == 0 || ammoCount == 65535) // To avoid recoil switch during game init
-            outOfAmmo = true;
+        ammoCount = DoMemoryRead<u16>(0x67698);
       }
       if (port == 1)
       {
-        u8 ammoCount = DoMemoryRead<u16>(0x6772c);
-        if (ammoCount == 0 || ammoCount == 65535)
-            outOfAmmo = true;
+        ammoCount = DoMemoryRead<u16>(0x6772c);
       }
+      if (ammoCount == 65535) // To avoid recoil switch during game init
+        ammoCount = 0;
+
+      if (ammoCount < lastAmmo)
+      {
+        long long diff = timestamp - triggerLastPress;
+        if (diff < max_time_lastPress)
+        {
+          output_signal = "gunshot";
+          triggerLastPress = 0;
+        }
+      }
+      
+      lastAmmo = ammoCount;
     }
 
-    if (active_game == "SCES-02543") //Ghoul Panic (Europe) (En,Fr,De,Es,It)
+    if (active_game == "SCES-02543") // Ghoul Panic (Europe) (En,Fr,De,Es,It)
     {
+      u8 ammoCount = 0;
       if (port == 0)
       {
-        u8 ammoCount = DoMemoryRead<u8>(0x2eb4e);
-
-        if (ammoCount == 0)
-            outOfAmmo = true;
-
+        ammoCount = DoMemoryRead<u8>(0x2eb4e);
       }
       if (port == 1)
       {
-        u8 ammoCount = DoMemoryRead<u8>(0x2ec7e);
-
-        if (ammoCount == 0)
-            outOfAmmo = true;
+        ammoCount = DoMemoryRead<u8>(0x2ec7e);
       }
+
+      if (ammoCount < lastAmmo)
+      {
+        long long diff = timestamp - triggerLastPress;
+        if (diff < max_time_lastPress)
+        {
+          output_signal = "gunshot";
+          triggerLastPress = 0;
+        }
+      }
+      lastAmmo = ammoCount;
+
+
     }
 
-    if (active_game == "SLUS-01398") //Gunfighter - The Legend of Jesse James (USA)
+    if (active_game == "SLUS-01398") // Gunfighter - The Legend of Jesse James (USA)
     {
       if (port == 0)
       {
         u8 ammoCount = DoMemoryRead<u8>(0xe6cc8);
 
-        if (ammoCount == 0)
-            outOfAmmo = true;
+        if (ammoCount < lastAmmo)
+        {
+          long long diff = timestamp - triggerLastPress;
+          if (diff < max_time_lastPress)
+          {
+            output_signal = "gunshot";
+            triggerLastPress = 0;
+          }
+        }
+        lastAmmo = ammoCount;
       }
     }
 
-    if (active_game == "HASH-2A8EE8AAA2279639") //Horned Owl (Japan)
+    if (active_game == "HASH-2A8EE8AAA2279639") // Horned Owl (Japan)
     {
+      u16 ammoCount = 0;
+      u16 charge = 0;
       if (port == 0)
       {
-        u16 ammoCount = DoMemoryRead<u16>(0xb8804);
-
-        if (ammoCount < 520)
-            outOfAmmo = true;
+        ammoCount = DoMemoryRead<u16>(0xb8804);
+        charge = DoMemoryRead<u16>(0xb880c);
       }
 
       if (port == 1)
       {
-        u16 ammoCount = DoMemoryRead<u16>(0xb8814);
-
-        if (ammoCount < 520)
-            outOfAmmo = true;
+        ammoCount = DoMemoryRead<u16>(0xb8814);
+        charge = DoMemoryRead<u16>(0xb881c);
       }
+
+      if (ammoCount < 520)
+        ammoCount = 0;
+
+      if (triggerIsActive && charge > 2400)
+      {
+        lastCharged = 1;
+      }
+      if (ammoCount < lastAmmo) //&& ((long)triggerLastPress + 100000) >= timestamp)
+      {
+        long long diff = timestamp - triggerLastRelease;
+        if (diff < max_time_lastPress)
+        {
+          if (lastCharged == 1)
+          {
+            output_signal = "tripleshot";
+            lastCharged = 0;
+          }
+          else
+          {
+            output_signal = "gunshot";
+          }
+          triggerLastRelease = 0;
+        }
+      }
+      lastAmmo = ammoCount;
     }
 
-    if (active_game == "SLUS-00630") //Judge Dredd (USA)
+    if (active_game == "SLUS-00630") // Judge Dredd (USA)
     {
+      u8 ammoCount = 0;
       if (port == 0)
       {
-        u8 ammoCount = DoMemoryRead<u8>(0xda9a1);
+        ammoCount = DoMemoryRead<u8>(0xda9a1);
 
-        if (ammoCount == 0)
-            outOfAmmo = true;
+      }
+      if (port == 1)
+      {
+        ammoCount = DoMemoryRead<u8>(0xda9e9);
+      }
+      if (ammoCount < lastAmmo)
+      {
+        long long diff = timestamp - triggerLastPress;
+        if (diff < max_time_lastPress)
+        {
+          output_signal = "gunshot";
+          triggerLastPress = 0;
+        }
+      }
+      lastAmmo = ammoCount;
+
+    }
+
+    if (active_game == "SLES-00542") // Lethal Enforcers (Europe)
+    {
+      u8 ammoCount = 0;
+      if (port == 0)
+      {
+        ammoCount = DoMemoryRead<u8>(0x78358);
+      }
+      if (port == 1)
+      {
+        ammoCount = DoMemoryRead<u8>(0x7838c);
+      }
+      if (ammoCount < lastAmmo)
+      {
+        long long diff = timestamp - triggerLastPress;
+        if (diff < max_time_lastPress)
+        {
+          output_signal = "gunshot";
+          triggerLastPress = 0;
+        }
+      }
+      lastAmmo = ammoCount;
+
+    }
+
+    if (active_game == "SLUS-00293") // Lethal Enforcers I & II (USA)
+    {
+      u8 ammoCount = 0;
+      if (port == 0)
+      {
+        ammoCount = DoMemoryRead<u8>(0x78c38);
+      }
+      if (port == 1)
+      {
+        ammoCount = DoMemoryRead<u8>(0x78c6c);
+      }
+      if (ammoCount < lastAmmo)
+      {
+        long long diff = timestamp - triggerLastPress;
+        if (diff < max_time_lastPress)
+        {
+          output_signal = "gunshot";
+          triggerLastPress = 0;
+        }
+      }
+      lastAmmo = ammoCount;
+    }
+
+    if (active_game == "SLUS-00503") // Maximum Force (USA)
+    {
+      u8 ammoCount = 0;
+      if (port == 0)
+      {
+        ammoCount = DoMemoryRead<u8>(0x6e844);
       }
 
       if (port == 1)
       {
-        u8 ammoCount = DoMemoryRead<u8>(0xda9e9);
-
-        if (ammoCount == 0)
-            outOfAmmo = true;
+        ammoCount = DoMemoryRead<u8>(0x6e8d4);
       }
-    }
 
-    if (active_game == "SLES-00542") //Lethal Enforcers (Europe)
-    {
-      if (port == 0)
+      if (ammoCount < lastAmmo)
       {
-        u8 ammoCount = DoMemoryRead<u8>(0x78358);
-
-        if (ammoCount == 0)
-            outOfAmmo = true;
+        long long diff = timestamp - triggerLastPress;
+        if (diff < (max_time_lastPress*2))
+        {
+          output_signal = "gunshot";
+          triggerLastPress = 0;
+        }
       }
+      lastAmmo = ammoCount;
 
-      if (port == 1)
-      {
-        u8 ammoCount = DoMemoryRead<u8>(0x7838c);
-
-        if (ammoCount == 0)
-            outOfAmmo = true;
-      }
-    }
-
-    if (active_game == "SLUS-00293") //Lethal Enforcers I & II (USA)
-    {
-      if (port == 0)
-      {
-        u8 ammoCount = DoMemoryRead<u8>(0x78c38);
-
-        if (ammoCount == 0)
-            outOfAmmo = true;
-      }
-
-      if (port == 1)
-      {
-        u8 ammoCount = DoMemoryRead<u8>(0x78c6c);
-
-        if (ammoCount == 0)
-            outOfAmmo = true;
-      }
-    }
-
-    if (active_game == "SLUS-00503") //Maximum Force (USA)
-    {
-      if (port == 0)
-      {
-        u8 ammoCount = DoMemoryRead<u8>(0x6e844);
-
-        if (ammoCount == 0)
-            outOfAmmo = true;
-      }
-
-      if (port == 1)
-      {
-        u8 ammoCount = DoMemoryRead<u8>(0x6e8d4);
-
-        if (ammoCount == 0)
-            outOfAmmo = true;
-      }
     }
 
     if (active_game == "SLUS-00481") // Point Blank (USA)
     {
+      u8 ammoCount = 0;
       if (port == 0)
       {
-        u8 ammoCount = DoMemoryRead<u8>(0xad1a8);
-
-        if (ammoCount == 0)
-            outOfAmmo = true;
+        ammoCount = DoMemoryRead<u8>(0xad1a8);
       }
 
       if (port == 1)
       {
-        u8 ammoCount = DoMemoryRead<u8>(0xad1aa);
-
-        if (ammoCount == 0)
-            outOfAmmo = true;
+        ammoCount = DoMemoryRead<u8>(0xad1aa);
       }
+
+      if (ammoCount > 200 && ammoCount < 255)
+        ammoCount = 0;
+
+      if (ammoCount < lastAmmo)
+      {
+        long long diff = timestamp - triggerLastPress;
+        if (diff < max_time_lastPress)
+        {
+          output_signal = "gunshot";
+          triggerLastPress = 0;
+        }
+      }
+      if (ammoCount == 255 && !isOutScreen)
+      {
+        long long diff = timestamp - triggerLastPress;
+        if (diff < max_time_lastPress)
+        {
+          output_signal = "gunshot";
+          triggerLastPress = 0;
+        }      
+      }
+
+      lastAmmo = ammoCount;
+
     }
 
     if (active_game == "SLUS-00796") // Point Blank 2 (USA)
     {
+      u8 ammoCount = 0;
       if (port == 0)
       {
-        u8 ammoCount = DoMemoryRead<u8>(0xb29f4);
-
-        if (ammoCount == 0)
-            outOfAmmo = true;
+        ammoCount = DoMemoryRead<u8>(0xb29f4);
       }
-
-
-      /*
       if (port == 1)
       {
-        u8 ammoCount = DoMemoryRead<u8>(0xad1aa);
-
-        if (ammoCount == 0)
-            outOfAmmo = true;
+        ammoCount = DoMemoryRead<u8>(0xb29f6);
       }
-      */
+      if (ammoCount > 200 && ammoCount < 255)
+        ammoCount = 0;
+
+      if (ammoCount < lastAmmo)
+      {
+        long long diff = timestamp - triggerLastPress;
+        if (diff < max_time_lastPress)
+        {
+          output_signal = "gunshot";
+          triggerLastPress = 0;
+        }
+      }
+      if (ammoCount == 255 && !isOutScreen)
+      {
+        long long diff = timestamp - triggerLastPress;
+        if (diff < max_time_lastPress)
+        {
+          output_signal = "gunshot";
+          triggerLastPress = 0;
+        }
+      }
+
+      lastAmmo = ammoCount;
     }
 
-    if (active_game == "SLUS-01354") //Point Blank 3 (USA)
+    if (active_game == "SLUS-01354") // Point Blank 3 (USA)
     {
+      u8 ammoCount = 0;
       if (port == 0)
       {
-        u8 ammoCount = DoMemoryRead<u8>(0x9d93c);
-
-        if (ammoCount == 0)
-            outOfAmmo = true;
+        ammoCount = DoMemoryRead<u8>(0x9d93c);
       }
-
-     
       if (port == 1)
       {
-        u8 ammoCount = DoMemoryRead<u8>(0x9d93e);
-
-        if (ammoCount == 0)
-            outOfAmmo = true;
+        ammoCount = DoMemoryRead<u8>(0x9d93e);
       }
+      if (ammoCount > 200 && ammoCount < 255)
+        ammoCount = 0;
+
+      if (ammoCount < lastAmmo)
+      {
+        long long diff = timestamp - triggerLastPress;
+        if (diff < max_time_lastPress)
+        {
+          output_signal = "gunshot";
+          triggerLastPress = 0;
+        }
+      }
+      if (ammoCount == 255 && !isOutScreen)
+      {
+        long long diff = timestamp - triggerLastPress;
+        if (diff < max_time_lastPress)
+        {
+          output_signal = "gunshot";
+          triggerLastPress = 0;
+        }
+      }
+
+      lastAmmo = ammoCount;
+
     }
 
-    if (active_game == "SLUS-00796") // Policenauts (Japan) (Disc 1)
+    if (active_game == "SLPM-86048") // Policenauts (Japan) (Disc 1)
     {
-      if (port == 0)
+      if (port == 1)
       {
+        forcegunA = true;
         u16 ammoCount = DoMemoryRead<u16>(0x62ab0);
+        
 
-        if (ammoCount == 0)
-            outOfAmmo = true;
+        if (ammoCount < lastAmmo)
+        {
+          
+          long long diff = timestamp - triggerLastPress;
+          if (diff < max_time_lastPress)
+          {
+            output_signal = "gunshot";
+            triggerLastPress = 0;
+          }
+        }
+        lastAmmo = ammoCount;
+
       }
       // 62ab0 u16
-
     }
 
-    if (active_game == "SCUS-94408") //Project - Horned Owl (USA)
+    if (active_game == "SCUS-94408") // Project - Horned Owl (USA)
     {
       if (port == 0)
       {
         u8 ammoCount = DoMemoryRead<u8>(0xb94bd);
 
         if (ammoCount <= 2)
-            outOfAmmo = true;
+          outOfAmmo = true;
       }
 
       if (port == 1)
@@ -681,68 +991,68 @@ void GunCon::threadOutputs()
         u8 ammoCount = DoMemoryRead<u8>(0xb94cd);
 
         if (ammoCount == 0)
-            outOfAmmo = true;
+          outOfAmmo = true;
       }
     }
 
-    if (active_game == "SLES-02732") //Resident Evil - Survivor (Europe)
+    if (active_game == "SLES-02732") // Resident Evil - Survivor (Europe)
     {
       if (port == 0)
       {
         u16 ammoCount = DoMemoryRead<u16>(0xaf9b2);
 
         if (ammoCount == 0)
-            outOfAmmo = true;
+          outOfAmmo = true;
       }
     }
 
-    if (active_game == "SLES-02744") //Resident Evil - Survivor (France)
+    if (active_game == "SLES-02744") // Resident Evil - Survivor (France)
     {
       if (port == 0)
       {
         u16 ammoCount = DoMemoryRead<u16>(0xafc6a);
 
         if (ammoCount == 0)
-            outOfAmmo = true;
+          outOfAmmo = true;
       }
     }
 
-    if (active_game == "SLUS-01087") //Resident Evil - Survivor (USA)
+    if (active_game == "SLUS-01087") // Resident Evil - Survivor (USA)
     {
-      
+
       if (port == 0)
       {
         u16 ammoCount = DoMemoryRead<u16>(0xaf802);
 
         if (ammoCount == 0)
-            outOfAmmo = true;
+          outOfAmmo = true;
       }
-      
     }
 
-    if (active_game == "SLPS-02474") //Simple 1500 Series Vol. 24 - The Gun Shooting (Japan) (Didn't found memory address for P2)
+    if (active_game ==
+        "SLPS-02474") // Simple 1500 Series Vol. 24 - The Gun Shooting (Japan) (Didn't found memory address for P2)
     {
       if (port == 0)
       {
         u16 ammoCount = DoMemoryRead<u16>(0x1ffe44);
 
         if (ammoCount == 0)
-            outOfAmmo = true;
+          outOfAmmo = true;
       }
     }
 
-    if (active_game == "SLUS-00405") //Time Crisis
+    if (active_game == "SLUS-00405") // Time Crisis
     {
       if (port == 0)
       {
         u16 ammoCount = DoMemoryRead<u16>(0xb1ddc);
 
         if (ammoCount == 0)
-            outOfAmmo = true;
+          outOfAmmo = true;
       }
     }
 
-    if (active_game == "SLUS-01336") //Time Crisis - Project Titan (USA)
+    if (active_game == "SLUS-01336") // Time Crisis - Project Titan (USA)
     {
       if (port == 0)
       {
@@ -753,9 +1063,22 @@ void GunCon::threadOutputs()
         if (isActiveFight == 0)
           isActive = false;
       }
-      //Log_DevPrintf("TESSSSSST AMMO = %d %d", ammoCount, isActiveFight);
+      // Log_DevPrintf("TESSSSSST AMMO = %d %d", ammoCount, isActiveFight);
     }
 
+    if (output_signal != "")
+    {
+      if (port == 0 || forcegunA)
+      {
+        Log_DevPrintf("GUN A : %s", output_signal.c_str());
+      }
+      if (port == 1 && !forcegunA)
+      {
+        Log_DevPrintf("GUN B : %s", output_signal.c_str());
+      }
+
+    }
+    /*
     output_current = 0;
     if (!outOfAmmo && isActive)
       output_current = 1;
@@ -773,13 +1096,13 @@ void GunCon::threadOutputs()
         Log_DevPrintf("GUN%d : Disable Recoil", gun_num);
         command = "off";
       }
-        
+
       if (output_current == 1)
       {
         Log_DevPrintf("GUN%d : Enable Recoil", gun_num);
         command = "on";
       }
-        
+
       if (output_current == 2)
       {
         Log_DevPrintf("GUN%d : Enable FullAuto Recoil", gun_num);
@@ -808,7 +1131,7 @@ void GunCon::threadOutputs()
         else
         {
           pipeConnected = true;
-        }      
+        }
       }
 
       if (pipeConnected)
@@ -818,15 +1141,17 @@ void GunCon::threadOutputs()
         {
           CloseHandle(hPipe);
           pipeConnected = false;
-        }     
+        }
       }
 
 
       output_previous = output_current;
     }
 
-    //Log_DevPrintf("THREAD : Thread active %s %d", active_game.c_str(), port);
-    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    */
+
+    // Log_DevPrintf("THREAD : Thread active %s %d", active_game.c_str(), port);
+    std::this_thread::sleep_for(std::chrono::milliseconds(5));
     currentState = (int)System::GetState();
   }
   Log_DevPrintf("THREAD : Thread stop");

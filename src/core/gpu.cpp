@@ -1038,10 +1038,10 @@ void GPU::ConvertScreenCoordinatesToDisplayCoordinates(float window_x, float win
   *display_x = scaled_display_x * static_cast<float>(m_crtc_state.display_width);
   *display_y = scaled_display_y * static_cast<float>(m_crtc_state.display_height);
 
-  Log_DevPrintf("win %.0f,%.0f -> local %.0f,%.0f, disp %.2f,%.2f (size %u,%u frac %f,%f)", window_x, window_y,
+  /* Log_DevPrintf("win %.0f,%.0f -> local %.0f,%.0f, disp %.2f,%.2f (size %u,%u frac %f,%f)", window_x, window_y,
                 window_x - draw_rc.left, window_y - draw_rc.top, *display_x, *display_y, m_crtc_state.display_width,
                 m_crtc_state.display_height, *display_x / static_cast<float>(m_crtc_state.display_width),
-                *display_y / static_cast<float>(m_crtc_state.display_height));
+                *display_y / static_cast<float>(m_crtc_state.display_height));*/
 }
 
 bool GPU::ConvertDisplayCoordinatesToBeamTicksAndLines(float display_x, float display_y, float x_scale, u32* out_tick,
@@ -1049,7 +1049,7 @@ bool GPU::ConvertDisplayCoordinatesToBeamTicksAndLines(float display_x, float di
 {
 
  std::string gameSerial = System::GetGameSerial();
- Log_DevPrintf("TESSSSSST ! %s :  %f %f - %d %d", gameSerial.c_str(), display_x, display_y, m_crtc_state.display_width, m_crtc_state.display_height);
+ //Log_DevPrintf("TESSSSSST ! %s :  %f %f - %d %d", gameSerial.c_str(), display_x, display_y, m_crtc_state.display_width, m_crtc_state.display_height);
  bool use_regular_out_screen = true;
  float y_scale = 1.0f;
  x_scale = 1.0f;
