@@ -46,7 +46,7 @@ static T DoMemoryRead(VirtualMemoryAddress address)
 GunCon::GunCon(u32 index) : Controller(index)
 {
   port = index;
-  Log_DevPrintf("GUN %d : CREATE GUN", port);
+  //Log_DevPrintf("GUN %d : CREATE GUN", port);
 }
 
 GunCon::~GunCon()
@@ -296,7 +296,7 @@ void GunCon::UpdatePosition()
 {
   if (useRecoil && active_game == "")
   {
-    Log_DevPrintf("GUN %d : START GUN", port);
+    //Log_DevPrintf("GUN %d : START GUN", port);
     pipeConnected = false;
     if (hPipe != nullptr)
     {
@@ -331,7 +331,7 @@ void GunCon::UpdatePosition()
 
     active_game = System::GetGameSerial();
     myThread = new std::thread(&GunCon::threadOutputs, this);
-    Log_DevPrintf("GUN %d : THREAD START GUN", port);
+    //Log_DevPrintf("GUN %d : THREAD START GUN", port);
   }
 
   float display_x, display_y;
@@ -405,7 +405,7 @@ void GunCon::UpdateSoftwarePointerPosition()
 
 void GunCon::threadOutputs()
 {
-  Log_DevPrintf("THREAD : Thread active");
+  //Log_DevPrintf("THREAD : Thread active");
   int currentState = (int)System::GetState();
 
   while (currentState == 2 || currentState == 3)
@@ -417,16 +417,10 @@ void GunCon::threadOutputs()
     if (port == 1)
       gun_num = 2;
 
-    // u32 ammoCount = 10;
-    // u8 isActiveFight = 1;
-
-    bool outOfAmmo = false;
-    bool isActive = true;
-    bool gunAuto = false;
     bool forcegunA = false;
 
     // New
-    long max_time_lastPress = 100000;
+    long max_time_lastPress = recoilMaxDelay;
     std::chrono::microseconds::rep timestamp =
       std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch())
         .count();
@@ -447,7 +441,7 @@ void GunCon::threadOutputs()
       if (ammoCount < lastAmmo)
       {
         long diff = timestamp - triggerLastPress;
-        if (diff < (max_time_lastPress*2)) //Bigger delay needed
+        if (diff < (max_time_lastPress+100000)) //Bigger delay needed
         {
           output_signal = "gunshot";
         }
@@ -830,7 +824,7 @@ void GunCon::threadOutputs()
       if (ammoCount < lastAmmo)
       {
         long long diff = timestamp - triggerLastPress;
-        if (diff < (max_time_lastPress*2))
+        if (diff < (max_time_lastPress + 100000))
         {
           output_signal = "gunshot";
           triggerLastPress = 0;
@@ -978,21 +972,50 @@ void GunCon::threadOutputs()
 
     if (active_game == "SCUS-94408") // Project - Horned Owl (USA)
     {
+      u8 ammoCount = 0;
+      u16 charge = 0;
       if (port == 0)
       {
-        u8 ammoCount = DoMemoryRead<u8>(0xb94bd);
-
-        if (ammoCount <= 2)
-          outOfAmmo = true;
+        ammoCount = DoMemoryRead<u8>(0xb94bd);
+        charge = DoMemoryRead<u16>(0xb94c4);
       }
 
       if (port == 1)
       {
-        u8 ammoCount = DoMemoryRead<u8>(0xb94cd);
-
-        if (ammoCount == 0)
-          outOfAmmo = true;
+        ammoCount = DoMemoryRead<u8>(0xb94cd);
+        charge = DoMemoryRead<u16>(0xb94d4);
       }
+
+       //Log_DevPrintf("TESSSSSST AMMO = %d %d", ammoCount, charge);
+      
+      if (ammoCount < 5)
+        ammoCount = 0;
+
+      if (triggerIsActive && charge > 2400 && charge > lastOther1)
+      {
+        lastCharged = 1;
+      }
+
+
+      if (ammoCount < lastAmmo) //&& ((long)triggerLastPress + 100000) >= timestamp)
+      {
+        long long diff_rlz = timestamp - triggerLastRelease;
+        long long diff_press = timestamp - triggerLastPress;
+
+        if (diff_press < max_time_lastPress)
+        {
+          output_signal = "gunshot";
+          triggerLastPress = 0;
+        }
+        if (lastCharged == 1 && !triggerIsActive && diff_rlz < max_time_lastPress)
+        {
+          output_signal = "tripleshot";
+          triggerLastRelease = 0;
+          lastCharged = 0;
+        }
+      }
+      lastAmmo = ammoCount;
+      lastOther1 = charge;
     }
 
     if (active_game == "SLES-02732") // Resident Evil - Survivor (Europe)
@@ -1001,8 +1024,17 @@ void GunCon::threadOutputs()
       {
         u16 ammoCount = DoMemoryRead<u16>(0xaf9b2);
 
-        if (ammoCount == 0)
-          outOfAmmo = true;
+        if (ammoCount < lastAmmo)
+        {
+
+          long long diff = timestamp - triggerLastPress;
+          if (diff < max_time_lastPress + 100000)
+          {
+            output_signal = "gunshot";
+            triggerLastPress = 0;
+          }
+        }
+        lastAmmo = ammoCount;
       }
     }
 
@@ -1012,8 +1044,18 @@ void GunCon::threadOutputs()
       {
         u16 ammoCount = DoMemoryRead<u16>(0xafc6a);
 
-        if (ammoCount == 0)
-          outOfAmmo = true;
+        if (ammoCount < lastAmmo)
+        {
+          
+          long long diff = timestamp - triggerLastPress;
+          if (diff < max_time_lastPress*2)
+          {
+            output_signal = "gunshot";
+            triggerLastPress = 0;
+          }
+        }
+        lastAmmo = ammoCount;
+
       }
     }
 
@@ -1024,8 +1066,17 @@ void GunCon::threadOutputs()
       {
         u16 ammoCount = DoMemoryRead<u16>(0xaf802);
 
-        if (ammoCount == 0)
-          outOfAmmo = true;
+        if (ammoCount < lastAmmo)
+        {
+
+          long long diff = timestamp - triggerLastPress;
+          if (diff < max_time_lastPress + 100000)
+          {
+            output_signal = "gunshot";
+            triggerLastPress = 0;
+          }
+        }
+        lastAmmo = ammoCount;
       }
     }
 
@@ -1036,8 +1087,18 @@ void GunCon::threadOutputs()
       {
         u16 ammoCount = DoMemoryRead<u16>(0x1ffe44);
 
-        if (ammoCount == 0)
-          outOfAmmo = true;
+        if (ammoCount < lastAmmo)
+        {
+
+          long long diff = timestamp - triggerLastPress;
+          //Log_DevPrintf("TESSSSSST AMMO = %d %lld", ammoCount, diff);
+          if (diff < max_time_lastPress + 100000)
+          {
+            output_signal = "gunshot";
+            triggerLastPress = 0;
+          }
+        }
+        lastAmmo = ammoCount;
       }
     }
 
@@ -1047,8 +1108,20 @@ void GunCon::threadOutputs()
       {
         u16 ammoCount = DoMemoryRead<u16>(0xb1ddc);
 
-        if (ammoCount == 0)
-          outOfAmmo = true;
+        if (ammoCount < lastAmmo)
+        {
+
+          long long diff = timestamp - triggerLastPress;
+          //Log_DevPrintf("TESSSSSST AMMO = %d %lld", ammoCount, diff);
+          if (diff < max_time_lastPress + 100000)
+          {
+            output_signal = "gunshot";
+            triggerLastPress = 0;
+          }
+        }
+        lastAmmo = ammoCount;
+
+
       }
     }
 
@@ -1057,17 +1130,25 @@ void GunCon::threadOutputs()
       if (port == 0)
       {
         u32 ammoCount = DoMemoryRead<u16>(0x7d47c);
-        u8 isActiveFight = DoMemoryRead<u8>(0x1d2575);
-        if (ammoCount == 0)
-          outOfAmmo = true;
-        if (isActiveFight == 0)
-          isActive = false;
+        if (ammoCount < lastAmmo)
+        {
+
+          long long diff = timestamp - triggerLastPress;
+          //Log_DevPrintf("TESSSSSST AMMO = %d %lld", ammoCount, diff);
+          if (diff < max_time_lastPress + 100000)
+          {
+            output_signal = "gunshot";
+            triggerLastPress = 0;
+          }
+        }
+        lastAmmo = ammoCount;
       }
       // Log_DevPrintf("TESSSSSST AMMO = %d %d", ammoCount, isActiveFight);
     }
 
     if (output_signal != "")
     {
+      /*
       if (port == 0 || forcegunA)
       {
         Log_DevPrintf("GUN A : %s", output_signal.c_str());
@@ -1076,39 +1157,8 @@ void GunCon::threadOutputs()
       {
         Log_DevPrintf("GUN B : %s", output_signal.c_str());
       }
-
-    }
-    /*
-    output_current = 0;
-    if (!outOfAmmo && isActive)
-      output_current = 1;
-    if (output_current && gunAuto)
-      output_current = 2;
-
-    if (noRecoilOutScreen && isOutScreen)
-      output_current = 0;
-
-    if (output_previous != output_current)
-    {
-      std::string command = "";
-      if (output_current == 0)
-      {
-        Log_DevPrintf("GUN%d : Disable Recoil", gun_num);
-        command = "off";
-      }
-
-      if (output_current == 1)
-      {
-        Log_DevPrintf("GUN%d : Enable Recoil", gun_num);
-        command = "on";
-      }
-
-      if (output_current == 2)
-      {
-        Log_DevPrintf("GUN%d : Enable FullAuto Recoil", gun_num);
-        command = "auto";
-      }
-      command += "\n";
+      */
+      output_signal += "\n";
 
       if (!pipeConnected)
       {
@@ -1137,24 +1187,20 @@ void GunCon::threadOutputs()
       if (pipeConnected)
       {
         DWORD bytesWritten;
-        if (!WriteFile(hPipe, command.c_str(), strlen(command.c_str()), &bytesWritten, NULL))
+        if (!WriteFile(hPipe, output_signal.c_str(), strlen(output_signal.c_str()), &bytesWritten, NULL))
         {
           CloseHandle(hPipe);
           pipeConnected = false;
         }
       }
 
-
-      output_previous = output_current;
     }
 
-    */
-
     // Log_DevPrintf("THREAD : Thread active %s %d", active_game.c_str(), port);
-    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    std::this_thread::sleep_for(std::chrono::milliseconds(recoilPoolSpeed));
     currentState = (int)System::GetState();
   }
-  Log_DevPrintf("THREAD : Thread stop");
+  //Log_DevPrintf("THREAD : Thread stop");
 }
 
 std::unique_ptr<GunCon> GunCon::Create(u32 index)
@@ -1209,8 +1255,9 @@ const Controller::ControllerInfo GunCon::INFO = {
 void GunCon::LoadSettings(SettingsInterface& si, const char* section)
 {
   Controller::LoadSettings(si, section);
-  useRecoil = si.GetBoolValue(section, "UseRecoil");
-  noRecoilOutScreen = si.GetBoolValue(section, "NoRecoilOutScreen");
+  useRecoil = si.GetBoolValue(section, "UseRecoil",true);
+  recoilMaxDelay = si.GetIntValue(section, "RecoilMaxDelay", 100000);
+  recoilPoolSpeed = si.GetIntValue(section, "RecoilPoolSpeed", 10);
 
   m_x_scale = si.GetFloatValue(section, "XScale", 1.0f);
 

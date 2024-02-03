@@ -88,7 +88,8 @@ private:
 
 
   bool useRecoil = false;
-  bool noRecoilOutScreen = false;
+  int recoilMaxDelay = 100000;
+  int recoilPoolSpeed = 10;
   void threadOutputs();
   std::thread* myThread = nullptr;
   bool quitThread = false;
@@ -108,6 +109,8 @@ private:
   int lastAmmo = INT32_MAX;
   int lastWeapon = 0;
   int lastCharged = 0;
+  int lastOther1 = 0;
+  int lastOther2 = 0;
   bool fullAutoActive = false;
 
 
