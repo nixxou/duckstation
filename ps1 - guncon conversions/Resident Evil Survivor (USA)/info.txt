@@ -1,0 +1,50 @@
+### General info ###
+
+This patch is made for US release of Resident Evil: Survivor and here's what it does:
+
+1. Fixed broken music in one of the areas in the factory, that particular track was broken by those who mastered disc image for production and it is not a bad dump on your side.
+2. Restored light gun support, which was removed from US release for some very dumb reason.
+3. Disabled modchip detection code for your convenience.
+
+So, now US version of this very atmospheric game is presented to you in its non-broken state, like it should have been released originally.
+
+Unfortunately, it is impossible to fix atrocious storyline. But hey, what can we do? Sigh...
+
+### Additional info ###
+
+Here's how this game controls with GunCon light gun:
+
+    To walk forward - press Trigger off-screen.
+    To run forward - press Trigger off-screen and then shortly release and press it again.
+    To walk backward - double tap Trigger off-screen.
+    To rotate left or right - press A or B respectively.
+    To quickly switch direction between visible active points - double tap A or B.
+    To skip cut-scene - tap A+B (not all cut-scenes are skippable).
+
+    To open inventory menu - tap A+B
+    To open option menu - hold Trigger and tap A+B
+
+    In the menus you can:
+        Navigate - press A or B
+        Make choice - press Trigger
+        Cancel - press A+B
+
+### CD image info ###
+
+Game serial number:
+
+SLUS_010.87
+
+CD image checksums:
+
+CRC-32  ff8550fa
+MD5     56fc491dd5eafcf84c7bf0f65c4e03f0
+SHA-1   19ee4d5633919418080fbcf093b6de450405d28a
+
+For patching use any available PPF patching tool, like PPF-O-Matic.
+
+### Credits ###
+
+Created by Raziel I.C.H.I. Znot
+
+27.10.2018
