@@ -106,6 +106,13 @@
         </property>
        </widget>
       </item>
+      <item row="8" column="1">
+       <widget class="QCheckBox" name="enableMameHooker">
+        <property name="text">
+         <string>Enable Mame Hooker</string>
+        </property>
+       </widget>
+      </item>		 
      </layout>
     </widget>
    </item>

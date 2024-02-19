@@ -2683,6 +2683,8 @@ void FullscreenUI::DrawInterfaceSettingsPage()
 
   DrawToggleSetting(bsi, FSUI_ICONSTR(ICON_FA_PAUSE, "Pause On Start"),
                     FSUI_CSTR("Pauses the emulator when a game is started."), "Main", "StartPaused", false);
+  DrawToggleSetting(bsi, FSUI_ICONSTR(ICON_FA_PAUSE, "Enable MameHooker"),
+                    FSUI_CSTR("Enable Mamehooker outputs (need .NET 8"), "Main", "EnableMameHooker", false);
   DrawToggleSetting(bsi, FSUI_ICONSTR(ICON_FA_VIDEO, "Pause On Focus Loss"),
                     FSUI_CSTR("Pauses the emulator when you minimize the window or switch to another "
                               "application, and unpauses when you switch back."),
@@ -6849,6 +6851,7 @@ TRANSLATE_NOOP("FullscreenUI", "Patches the BIOS to skip the boot animation. Saf
 TRANSLATE_NOOP("FullscreenUI", "Path");
 TRANSLATE_NOOP("FullscreenUI", "Pause On Focus Loss");
 TRANSLATE_NOOP("FullscreenUI", "Pause On Start");
+TRANSLATE_NOOP("FullscreenUI", "Enable MameHooker");
 TRANSLATE_NOOP("FullscreenUI", "Pauses the emulator when a game is started.");
 TRANSLATE_NOOP("FullscreenUI", "Pauses the emulator when you minimize the window or switch to another application, and unpauses when you switch back.");
 TRANSLATE_NOOP("FullscreenUI", "Per-Game Configuration");

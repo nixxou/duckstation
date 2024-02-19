@@ -142,6 +142,7 @@ void Settings::Load(SettingsInterface& si)
   increase_timer_resolution = si.GetBoolValue("Main", "IncreaseTimerResolution", true);
   inhibit_screensaver = si.GetBoolValue("Main", "InhibitScreensaver", true);
   start_paused = si.GetBoolValue("Main", "StartPaused", false);
+  enableMameHooker = si.GetBoolValue("Main", "EnableMameHooker", false);
   start_fullscreen = si.GetBoolValue("Main", "StartFullscreen", false);
   pause_on_focus_loss = si.GetBoolValue("Main", "PauseOnFocusLoss", false);
   save_state_on_exit = si.GetBoolValue("Main", "SaveStateOnExit", true);
@@ -417,6 +418,7 @@ void Settings::Save(SettingsInterface& si) const
   si.SetBoolValue("Main", "IncreaseTimerResolution", increase_timer_resolution);
   si.SetBoolValue("Main", "InhibitScreensaver", inhibit_screensaver);
   si.SetBoolValue("Main", "StartPaused", start_paused);
+  si.SetBoolValue("Main", "EnableMameHooker", enableMameHooker);
   si.SetBoolValue("Main", "StartFullscreen", start_fullscreen);
   si.SetBoolValue("Main", "PauseOnFocusLoss", pause_on_focus_loss);
   si.SetBoolValue("Main", "SaveStateOnExit", save_state_on_exit);

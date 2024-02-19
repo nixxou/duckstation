@@ -19,6 +19,7 @@
 #include <array>
 
 #include "cpu_core.h"
+#include "core/MameHookerProxy.h"
 
 //#ifdef _DEBUG
 #include "common/log.h"
@@ -165,6 +166,7 @@ void GunCon::SetBindState(u32 index, float value)
         triggerLastRelease =
           std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch())
             .count();
+        MameHookerProxy::GetInstance().SendState("TriggerPress_P" + std::to_string(port + 1), 0);
       }
       m_shoot_offscreen = pressed;
       SetBindState(static_cast<u32>(Binding::Trigger), pressed, true);
@@ -180,6 +182,7 @@ void GunCon::SetBindState(u32 index, float value)
       triggerLastPress =
         std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch())
           .count();
+      MameHookerProxy::GetInstance().SendState("TriggerPress_P" + std::to_string(port + 1), 1);
     }
     else
     {
@@ -187,6 +190,7 @@ void GunCon::SetBindState(u32 index, float value)
       triggerLastRelease =
         std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch())
           .count();
+      MameHookerProxy::GetInstance().SendState("TriggerPress_P" + std::to_string(port + 1), 0);
     }
   }
 
@@ -1374,6 +1378,7 @@ void GunCon::threadOutputs()
       {
         GunCon::SendComMessage("F0x2x0x");
       }
+      MameHookerProxy::GetInstance().Gunshot(port);
     }
 
     /*

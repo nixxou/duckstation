@@ -78,6 +78,7 @@ struct Settings
   bool increase_timer_resolution = true;
   bool inhibit_screensaver = true;
   bool start_paused = false;
+  bool enableMameHooker = false;
   bool start_fullscreen = false;
   bool pause_on_focus_loss = false;
   bool save_state_on_exit = true;

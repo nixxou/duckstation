@@ -35,6 +35,7 @@ GeneralSettingsWidget::GeneralSettingsWidget(SettingsWindow* dialog, QWidget* pa
   SettingWidgetBinder::BindWidgetToBoolSetting(sif, m_ui.inhibitScreensaver, "Main", "InhibitScreensaver", true);
   SettingWidgetBinder::BindWidgetToBoolSetting(sif, m_ui.pauseOnFocusLoss, "Main", "PauseOnFocusLoss", false);
   SettingWidgetBinder::BindWidgetToBoolSetting(sif, m_ui.pauseOnStart, "Main", "StartPaused", false);
+  SettingWidgetBinder::BindWidgetToBoolSetting(sif, m_ui.enableMameHooker, "Main", "EnableMameHooker", false);
   SettingWidgetBinder::BindWidgetToBoolSetting(sif, m_ui.saveStateOnExit, "Main", "SaveStateOnExit", true);
   SettingWidgetBinder::BindWidgetToBoolSetting(sif, m_ui.confirmPowerOff, "Main", "ConfirmPowerOff", true);
   SettingWidgetBinder::BindWidgetToBoolSetting(sif, m_ui.loadDevicesFromSaveStates, "Main", "LoadDevicesFromSaveStates",
@@ -85,6 +86,8 @@ GeneralSettingsWidget::GeneralSettingsWidget(SettingsWindow* dialog, QWidget* pa
        "the game list. If checked, the display will render in a separate window."));
   dialog->registerWidgetHelp(m_ui.pauseOnStart, tr("Pause On Start"), tr("Unchecked"),
                              tr("Pauses the emulator when a game is started."));
+  dialog->registerWidgetHelp(m_ui.enableMameHooker, tr("Enable MameHooker"), tr("Unchecked"),
+                             tr("Enable MameHooker."));
   dialog->registerWidgetHelp(m_ui.pauseOnFocusLoss, tr("Pause On Focus Loss"), tr("Unchecked"),
                              tr("Pauses the emulator when you minimize the window or switch to another application, "
                                 "and unpauses when you switch back."));

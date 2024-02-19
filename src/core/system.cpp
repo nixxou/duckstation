@@ -77,6 +77,8 @@ Log_SetChannel(System);
 #include "discord_rpc.h"
 #endif
 
+#include "core/MameHookerProxy.h"
+
 // #define PROFILE_MEMORY_SAVE_STATES 1
 
 SystemBootParameters::SystemBootParameters() = default;
@@ -263,6 +265,8 @@ void System::Internal::ProcessStartup()
   if (g_settings.enable_discord_presence)
     InitializeDiscordPresence();
 #endif
+
+  MameHookerProxy::GetInstance().Init();
 }
 
 void System::Internal::ProcessShutdown()
@@ -1505,6 +1509,8 @@ bool System::BootSystem(SystemBootParameters parameters)
   if (g_settings.start_paused || parameters.override_start_paused.value_or(false))
     PauseSystem(true);
 
+
+
   ResetPerformanceCounters();
   if (IsRunning())
     UpdateSpeedLimiterState();
@@ -1614,6 +1620,7 @@ bool System::Initialize(bool force_software_renderer)
   UpdateThrottlePeriod();
   UpdateMemorySaveStateSettings();
   WarnAboutUnsafeSettings();
+
   return true;
 }
 
@@ -1695,6 +1702,8 @@ void System::ClearRunningGame()
   Host::OnGameChanged(s_running_game_path, s_running_game_serial, s_running_game_title);
 
   Achievements::GameChanged(s_running_game_path, nullptr);
+
+  MameHookerProxy::GetInstance().CloseGame();
 
 #ifdef ENABLE_DISCORD_PRESENCE
   UpdateDiscordPresence(true);
@@ -3385,6 +3394,12 @@ void System::UpdateRunningGame(const char* path, CDImage* image, bool booting)
 #ifdef ENABLE_DISCORD_PRESENCE
   UpdateDiscordPresence(booting);
 #endif
+
+  if (g_settings.enableMameHooker)
+  {
+    MameHookerProxy::GetInstance().StartGame(s_running_game_serial);
+  }
+  
 
   Host::OnGameChanged(s_running_game_path, s_running_game_serial, s_running_game_title);
 }
