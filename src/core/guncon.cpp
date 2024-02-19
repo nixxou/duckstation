@@ -20,10 +20,10 @@
 
 #include "cpu_core.h"
 
-#ifdef _DEBUG
+//#ifdef _DEBUG
 #include "common/log.h"
 Log_SetChannel(GunCon);
-#endif
+//#endif
 
 static constexpr std::array<u8, static_cast<size_t>(GunCon::Binding::ButtonCount)> s_button_indices = {{13, 3, 14}};
 
@@ -53,9 +53,17 @@ GunCon::~GunCon()
 {
   if (myThread != nullptr)
   {
+    /*
     if (hPipe != nullptr)
     {
       CloseHandle(hPipe);
+    }
+    */
+    if (serialPort != INVALID_HANDLE_VALUE)
+    {
+      GunCon::SendComMessage("E");
+      CloseHandle(serialPort);
+      serialPort = INVALID_HANDLE_VALUE;
     }
     quitThread = true;
     myThread->join();
@@ -297,6 +305,7 @@ void GunCon::UpdatePosition()
   if (useRecoil && active_game == "")
   {
     //Log_DevPrintf("GUN %d : START GUN", port);
+    /*
     pipeConnected = false;
     if (hPipe != nullptr)
     {
@@ -318,19 +327,31 @@ void GunCon::UpdatePosition()
     {
       pipeConnected = true;
     }
-
-    /*
-    const char* message = "Hello from Duckstation!\n";
-    DWORD bytesWritten;
-    if (!WriteFile(hPipe, message, strlen(message), &bytesWritten, NULL))
-    {
-      CloseHandle(hPipe);
-      pipeConnected = false;
-    }
     */
 
     active_game = System::GetGameSerial();
-    myThread = new std::thread(&GunCon::threadOutputs, this);
+
+    std::vector<std::string> liste_ids_recoil = {"SLUS-00335", "SLES-00445", "SLUS-00119",
+                                                 "SLUS-01015", "SLUS-00654", "SLES-03990",
+                                                 "SCES-02543", "SLUS-01398", "HASH-2A8EE8AAA2279639",
+                                                 "SLUS-00630", "SLES-00542", "SLUS-00293",
+                                                 "SLUS-00503", "SLUS-00481", "SLUS-00796",
+                                                 "SLUS-01354", "SLPM-86048", "SCUS-94408",
+                                                 "SLES-02732", "SLES-02744", "SLUS-01087",
+                                                 "SLPS-02474", "SLUS-00405", "SLUS-01336"};
+    bool id_present = false;
+    for (const std::string& id : liste_ids_recoil)
+    {
+      if (id == active_game)
+      {
+        id_present = true;
+        break;
+      }
+    }
+
+    Log_DevPrintf("ACTIVE GAME = %s", active_game);
+
+    if (id_present) myThread = new std::thread(&GunCon::threadOutputs, this);
     //Log_DevPrintf("GUN %d : THREAD START GUN", port);
   }
 
@@ -408,6 +429,57 @@ void GunCon::threadOutputs()
   //Log_DevPrintf("THREAD : Thread active");
   int currentState = (int)System::GetState();
 
+  if (active_game != "")
+  {
+    gun4irComPort = static_cast<int>(m_gun4irComPort);
+    bool validcom = false;
+    if (gun4irComPort > 0)
+    {
+      validcom = true;
+      std::string serialPortName = "COM" + std::to_string(gun4irComPort);
+      if (gun4irComPort >= 10)
+      {
+        serialPortName = "\\\\.\\COM" + std::to_string(gun4irComPort);
+      }
+      serialPort = CreateFileA(serialPortName.c_str(), GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING,
+                               FILE_ATTRIBUTE_NORMAL, NULL);
+
+      if (serialPort == INVALID_HANDLE_VALUE)
+      {
+        validcom = false;
+      }
+      if (validcom)
+      {
+        DCB dcbSerialParams = {0};
+        dcbSerialParams.DCBlength = sizeof(dcbSerialParams);
+
+        if (!GetCommState(serialPort, &dcbSerialParams))
+        {
+          validcom = false;
+        }
+        if (validcom)
+        {
+          dcbSerialParams.BaudRate = 9600;
+          dcbSerialParams.ByteSize = 8;
+          dcbSerialParams.StopBits = ONESTOPBIT;
+          dcbSerialParams.Parity = NOPARITY;
+        }
+        if (!SetCommState(serialPort, &dcbSerialParams))
+        {
+          validcom = false;
+        }
+      }
+    }
+    if (validcom)
+    {
+      GunCon::SendComMessage("S6");
+    }
+    else
+    {
+      serialPort = INVALID_HANDLE_VALUE;
+    }
+  }
+
   while (currentState == 2 || currentState == 3)
   {
     if (quitThread)
@@ -450,6 +522,7 @@ void GunCon::threadOutputs()
     }
     if (active_game == "SLES-00445") // Die Hard Trilogy (Europe) (En,Fr,De,Es,It,Sv)
     {
+      /*
       if (port == 0)
       {
         u16 ammoCount = DoMemoryRead<u16>(0x1fa0f6);
@@ -487,10 +560,31 @@ void GunCon::threadOutputs()
         }
         lastAmmo = ammoCount;
       }
+      */
+      bool valid_query = true;
+      u16 ammoCount = 0;
+      if (port == 0)
+      {
+        valid_query = true;
+        ammoCount = DoMemoryRead<u16>(0x1fa0f6);
+        u16 secondWeaponAmmo = DoMemoryRead<u16>(0x1fa126);
+        ammoCount += secondWeaponAmmo;
+        //u16 weaponType = DoMemoryRead<u16>(0x1fa114);
+      }
+      if (valid_query)
+      {
+        if (ammoCount < lastAmmo && triggerIsActive)
+        {
+          output_signal = "gunshot";
+        }
+        lastAmmo = ammoCount;
+      }
+
+
     }
     if (active_game == "SLUS-00119") // Die Hard Trilogy (USA)
     {
-
+      /*
       if (port == 0)
       {
         u16 ammoCount = DoMemoryRead<u16>(0x1f77ee);
@@ -528,9 +622,30 @@ void GunCon::threadOutputs()
         }
         lastAmmo = ammoCount;
       }
+      */
+      bool valid_query = true;
+      u16 ammoCount = 0;
+      if (port == 0)
+      {
+        valid_query = true;
+        ammoCount = DoMemoryRead<u16>(0x1f77ee);
+        u16 secondWeaponAmmo = DoMemoryRead<u16>(0x1f781e);
+        ammoCount += secondWeaponAmmo;
+        //u16 weaponType = DoMemoryRead<u16>(0x1f780c);
+      }
+      if (valid_query)
+      {
+        if (ammoCount < lastAmmo && triggerIsActive)
+        {
+          output_signal = "gunshot";
+        }
+        lastAmmo = ammoCount;
+      }
+
     }
     if (active_game == "SLUS-01015") // Die Hard Trilogy 2 - Viva Las Vegas (USA)
     {
+      /*
       if (port == 1)
       {
         forcegunA = true;
@@ -567,6 +682,23 @@ void GunCon::threadOutputs()
         }
         lastAmmo = ammoCount;
       }
+      */
+      bool valid_query = true;
+      u16 ammoCount = 0;
+      if (port == 1)
+      {
+        valid_query = true;
+        ammoCount = DoMemoryRead<u16>(0xb542c);
+        // u16 weaponType = DoMemoryRead<u16>(0x1f780c);
+      }
+      if (valid_query)
+      {
+        if (ammoCount < lastAmmo && triggerIsActive)
+        {
+          output_signal = "gunshot";
+        }
+        lastAmmo = ammoCount;
+      }
     }
 
     if (active_game == "SLUS-00654") // Elemental Gearbolt (USA)
@@ -600,11 +732,11 @@ void GunCon::threadOutputs()
             if (gunType == 16 && !fullAutoActive)
             {
               fullAutoActive = true;
-              output_signal = "machinegun_on";
+              output_signal = "machinegun_on:160";
             }
             else if (gunType == 8)
             {
-              output_signal = "tripleshot";
+              output_signal = "multishot:3:200";
             }
             else
             {
@@ -723,7 +855,7 @@ void GunCon::threadOutputs()
         {
           if (lastCharged == 1)
           {
-            output_signal = "tripleshot";
+            output_signal = "multishot:3:200";
             lastCharged = 0;
           }
           else
@@ -1009,7 +1141,7 @@ void GunCon::threadOutputs()
         }
         if (lastCharged == 1 && !triggerIsActive && diff_rlz < max_time_lastPress)
         {
-          output_signal = "tripleshot";
+          output_signal = "multishot:3:200";
           triggerLastRelease = 0;
           lastCharged = 0;
         }
@@ -1146,9 +1278,108 @@ void GunCon::threadOutputs()
       // Log_DevPrintf("TESSSSSST AMMO = %d %d", ammoCount, isActiveFight);
     }
 
+    bool doRecoil = false;
     if (output_signal != "")
     {
-      /*
+      if (port == 0)
+      {
+        Log_DevPrintf("GUN A : %s", output_signal.c_str());
+      }
+      if (port == 1)
+      {
+        Log_DevPrintf("GUN B : %s", output_signal.c_str());
+      }
+      if (output_signal == "gunshot")
+      {
+        nextGunShot = 0;
+        fullAutoDelay = 0;
+        queueSizeGunshot = 0;
+        multishotDelay = 0;
+        doRecoil = true;
+      }
+      if (output_signal.starts_with("multishot:"))
+      {
+        size_t firstColonPos = output_signal.find(':');
+        size_t secondColonPos = output_signal.find(':', firstColonPos + 1);
+
+        std::string num1Str = output_signal.substr(firstColonPos + 1, secondColonPos - firstColonPos - 1);
+        std::string num2Str = output_signal.substr(secondColonPos + 1);
+
+        int numberofshot = std::stoi(num1Str);
+        int delayshot = std::stoi(num2Str);
+
+        Log_DevPrintf("MULTISHOT DELAY = %d", delayshot);
+
+
+        delayshot *= 1000;
+        nextGunShot = timestamp + delayshot;
+        fullAutoDelay = 0;
+        queueSizeGunshot = numberofshot - 1;
+        multishotDelay = delayshot;
+        doRecoil = true;
+      }
+      if (output_signal.starts_with("machinegun_on:"))
+      {
+        size_t colonPos = output_signal.find(':');
+        std::string valueStr = output_signal.substr(colonPos + 1);
+        int delayshot = std::stoi(valueStr);
+
+        delayshot *= 1000;
+        nextGunShot = timestamp + delayshot;
+        fullAutoDelay = delayshot;
+        queueSizeGunshot = 0;
+        delayshot = 0;
+        doRecoil = true;
+      }
+      if (output_signal == "machinegun_off")
+      {
+        int delayshot;
+        nextGunShot = 0;
+        fullAutoDelay = 0;
+      }
+
+    }
+    else
+    {
+      if (queueSizeGunshot > 0 && timestamp > nextGunShot)
+      {
+        doRecoil = true;
+        queueSizeGunshot--;
+        if (queueSizeGunshot > 0)
+        {
+          nextGunShot = timestamp + multishotDelay;
+        }
+      }
+      if (fullAutoDelay > 0 && timestamp > nextGunShot)
+      {
+        doRecoil = true;
+        nextGunShot = timestamp + fullAutoDelay;
+      }
+    }
+
+    if (doRecoil)
+    {
+      long long diffgunshot = timestamp - lastGunShot;
+      lastGunShot = timestamp;
+     
+      if (port == 0)
+      {
+        Log_DevPrintf("GUN A : SHOT (%lld)", diffgunshot);
+      }
+      if (port == 1)
+      {
+        Log_DevPrintf("GUN B : SHOT (%lld)", diffgunshot);
+      }
+      if (serialPort != INVALID_HANDLE_VALUE)
+      {
+        GunCon::SendComMessage("F0x2x0x");
+      }
+    }
+
+    /*
+    if (output_signal != "")
+    {
+      
       if (port == 0 || forcegunA)
       {
         Log_DevPrintf("GUN A : %s", output_signal.c_str());
@@ -1157,7 +1388,7 @@ void GunCon::threadOutputs()
       {
         Log_DevPrintf("GUN B : %s", output_signal.c_str());
       }
-      */
+      
       output_signal += "\n";
 
       if (!pipeConnected)
@@ -1195,12 +1426,31 @@ void GunCon::threadOutputs()
       }
 
     }
+    */
 
     // Log_DevPrintf("THREAD : Thread active %s %d", active_game.c_str(), port);
     std::this_thread::sleep_for(std::chrono::milliseconds(recoilPoolSpeed));
     currentState = (int)System::GetState();
+
+
   }
-  //Log_DevPrintf("THREAD : Thread stop");
+  if (serialPort != INVALID_HANDLE_VALUE)
+  {
+    GunCon::SendComMessage("E");
+    CloseHandle(serialPort);
+    serialPort = INVALID_HANDLE_VALUE;
+  }
+  Log_DevPrintf("THREAD : Thread stop");
+}
+
+void GunCon::SendComMessage(const std::string& message)
+{
+  if (serialPort != INVALID_HANDLE_VALUE)
+  {
+    DWORD bytesWritten;
+    DWORD messageLength = static_cast<DWORD>(message.length());
+    WriteFile(serialPort, message.c_str(), messageLength, &bytesWritten, NULL);
+  }
 }
 
 std::unique_ptr<GunCon> GunCon::Create(u32 index)
@@ -1246,7 +1496,12 @@ static const SettingInfo s_settings[] = {
    "#ffffff", nullptr, nullptr, nullptr, nullptr, nullptr, 0.0f},
   {SettingInfo::Type::Float, "XScale", TRANSLATE_NOOP("GunCon", "X Scale"),
    TRANSLATE_NOOP("GunCon", "Scales X coordinates relative to the center of the screen."), "1.0", "0.01", "2.0", "0.01",
-   "%.0f%%", nullptr, 100.0f}};
+   "%.0f%%", nullptr, 100.0f},
+
+  {SettingInfo::Type::Float, "Gun4IRComPort", TRANSLATE_NOOP("GunCon", "Gun4Ir Com port"),
+   TRANSLATE_NOOP("GunCon", "Com port to enable recoil, 0=disabled"), "0", "0", "99", "1", "%f", nullptr,
+   1.0f},
+};
 
 const Controller::ControllerInfo GunCon::INFO = {
   ControllerType::GunCon, "GunCon",   TRANSLATE_NOOP("ControllerType", "GunCon"),    nullptr,
@@ -1260,6 +1515,8 @@ void GunCon::LoadSettings(SettingsInterface& si, const char* section)
   recoilPoolSpeed = si.GetIntValue(section, "RecoilPoolSpeed", 10);
 
   m_x_scale = si.GetFloatValue(section, "XScale", 1.0f);
+
+  m_gun4irComPort = si.GetFloatValue(section, "Gun4IRComPort", 0.0f);
 
   std::string cursor_path = si.GetStringValue(section, "CrosshairImagePath");
   const float cursor_scale = si.GetFloatValue(section, "CrosshairScale", 1.0f);

@@ -35,6 +35,7 @@ public:
   GunCon(u32 index);
   ~GunCon() override;
 
+  void SendComMessage(const std::string& message);
   static std::unique_ptr<GunCon> Create(u32 index);
 
   ControllerType GetType() const override;
@@ -97,14 +98,21 @@ private:
   int output_current = -1;
   int output_previous = -1;
   int port = -1;
+  /*
   HANDLE hPipe = nullptr;
   bool pipeConnected = false;
+  */
   bool isOutScreen = false;
 
 
   bool triggerIsActive = false;
   std::chrono::microseconds::rep triggerLastPress = 0;
   std::chrono::microseconds::rep triggerLastRelease = 0;
+  std::chrono::microseconds::rep lastGunShot = 0;
+  std::chrono::microseconds::rep nextGunShot = 0;
+  int queueSizeGunshot = 0;
+  long fullAutoDelay = 0;
+  long multishotDelay = 0;
 
   int lastAmmo = INT32_MAX;
   int lastWeapon = 0;
@@ -112,6 +120,9 @@ private:
   int lastOther1 = 0;
   int lastOther2 = 0;
   bool fullAutoActive = false;
+  float m_gun4irComPort = 0;
+  int gun4irComPort = 0;
+  HANDLE serialPort;
 
 
   TransferState m_transfer_state = TransferState::Idle;
